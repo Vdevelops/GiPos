@@ -1,0 +1,287 @@
+{
+  "landing": {
+    "header": {
+      "features": "Fitur",
+      "pricing": "Harga",
+      "faq": "FAQ",
+      "login": "Masuk",
+      "startFree": "Mulai Gratis"
+    },
+    "hero": {
+      "headline": "POS Sederhana untuk Bisnis yang Cepat Tumbuh.",
+      "subtext": "Kelola penjualan, produk, dan stok — semuanya dalam satu dashboard yang mudah. GiPos membantu Anda menjalankan toko lebih cepat, lebih mudah, dan lebih pintar.",
+      "ctaPrimary": "Mulai Gratis Selamanya",
+      "ctaSecondary": "Lihat Demo"
+    },
+    "about": {
+      "heading": "Dibuat untuk bisnis kecil yang bergerak cepat.",
+      "body1": "Kami membangun GiPos untuk pemilik bisnis nyata — mereka yang menjual, mengelola stok, dan melayani setiap hari.",
+      "body2": "Tidak ada setup rumit, tidak perlu pelatihan.",
+      "body3": "Cukup install, setup, dan mulai jual dalam hitungan menit."
+    },
+    "why": {
+      "heading": "Mengapa GiPos?",
+      "body": "Solusi sederhana untuk kebutuhan bisnis sehari-hari.",
+      "reason1": "Mudah digunakan, bahkan untuk pengguna pertama kali.",
+      "reason2": "Bekerja di ponsel, tablet, atau komputer.",
+      "reason3": "Semua penjualan dan stok Anda dalam satu tempat.",
+      "reason4": "Dukungan lokal yang benar-benar merespons.",
+      "reason5": "Dibangun oleh tim yang memahami bisnis kecil."
+    },
+    "features": {
+      "heading": "Semua yang Anda Butuhkan, Tanpa yang Tidak Perlu.",
+      "body": "GiPos fokus pada yang paling penting — menjual lebih cepat dan mengelola stok dengan mudah.",
+      "feature1": "Kasir POS cepat dengan scan barcode",
+      "feature2": "Manajemen produk & kategori unlimited",
+      "feature3": "Pelacakan stok multi-gudang real-time",
+      "feature4": "Dukungan multi-outlet & franchise",
+      "feature5": "Nota digital via email & WhatsApp",
+      "feature6": "Program loyalitas & poin pelanggan",
+      "feature7": "Dashboard laporan & analitik lengkap",
+      "feature8": "Pembayaran tunai, QRIS, e-wallet & transfer",
+      "feature9": "Role-based access control (RBAC)",
+      "feature10": "Mode offline dengan auto-sync",
+      "feature11": "Stock opname & transfer antar outlet",
+      "feature12": "Integrasi API untuk marketplace & ERP"
+    },
+    "pricing": {
+      "title": "Pilih paket yang sesuai dengan bisnis Anda.",
+      "subtitle": "Mulai kecil, berkembang kapan saja. Paket gratis tersedia selamanya — tanpa kartu kredit.",
+      "free": {
+        "name": "Free",
+        "price": "0",
+        "period": "selamanya",
+        "description": "Cocok untuk mencoba atau bisnis sangat kecil",
+        "features": [
+          "Kasir POS dasar",
+          "Maksimal 50 produk",
+          "Maksimal 5 kategori",
+          "History penjualan 30 hari",
+          "Nota digital (email saja)",
+          "Pembayaran: Tunai, QRIS",
+          "1 perangkat aktif",
+          "1 outlet",
+          "1 user (owner)",
+          "Dukungan komunitas"
+        ],
+        "cta": "Mulai Gratis"
+      },
+      "basic": {
+        "name": "Basic",
+        "price": "99.000",
+        "period": "bulan",
+        "description": "Cocok untuk UMKM kecil",
+        "features": [
+          "Semua fitur Free",
+          "Produk & kategori unlimited",
+          "History penjualan unlimited",
+          "Hingga 3 user",
+          "Export laporan ke Excel/PDF",
+          "Laporan analitik dasar",
+          "Diskon & promosi",
+          "1 perangkat aktif",
+          "1 outlet",
+          "Support email"
+        ],
+        "cta": "Mulai Sekarang"
+      },
+      "pro": {
+        "name": "Pro",
+        "price": "199.000",
+        "period": "bulan",
+        "description": "Cocok untuk retail/resto kecil-menengah",
+        "features": [
+          "Semua fitur Basic",
+          "Hingga 5 user",
+          "Manajemen stok multi-gudang",
+          "Stock opname & transfer",
+          "Laporan lengkap (penjualan, produk, keuangan)",
+          "Notifikasi WhatsApp otomatis",
+          "Pembayaran: + E-wallet, Transfer",
+          "Program loyalitas & poin pelanggan",
+          "3 perangkat aktif",
+          "Support email + chat"
+        ],
+        "cta": "Mulai Sekarang",
+        "popular": "Paling Populer"
+      },
+      "business": {
+        "name": "Business",
+        "price": "399.000",
+        "period": "bulan",
+        "description": "Cocok untuk multi outlet",
+        "features": [
+          "Semua fitur Pro",
+          "Hingga 5 outlet",
+          "Hingga 10 perangkat aktif",
+          "Transfer stok antar outlet",
+          "Role-based access control (RBAC)",
+          "Laporan konsolidasi multi-outlet",
+          "API dasar untuk integrasi",
+          "Dashboard mobile owner",
+          "Support prioritas"
+        ],
+        "cta": "Mulai Sekarang"
+      },
+      "enterprise": {
+        "name": "Enterprise",
+        "price": "Custom",
+        "period": "",
+        "description": "Cocok untuk franchise besar",
+        "features": [
+          "Semua fitur Business",
+          "Unlimited outlet & perangkat",
+          "Integrasi ERP (Accurate, Jurnal.id)",
+          "Custom report & dashboard",
+          "White-label option",
+          "Dedicated support",
+          "SLA guarantee",
+          "Custom training"
+        ],
+        "cta": "Hubungi Sales"
+      }
+    },
+    "testimonials": {
+      "heading": "Dibangun untuk toko, kafe, dan warung nyata.",
+      "body1": "Dari toko retail lokal hingga restoran kecil, GiPos membantu Anda menjaga semuanya berjalan lancar setiap hari.",
+      "body2": "Bergabunglah dengan pemilik bisnis kecil lainnya yang beralih ke GiPos dan tidak pernah menoleh ke belakang."
+    },
+    "cta": {
+      "heading": "Siap Berkembang dengan GiPos?",
+      "subtext": "Mulai gratis selamanya atau coba fitur Pro selama 14 hari. Tanpa biaya setup. Tanpa kontrak.",
+      "ctaPrimary": "Mulai Gratis Sekarang",
+      "ctaSecondary": "Jadwalkan Demo"
+    },
+    "faq": {
+      "heading": "Pertanyaan yang Sering Diajukan",
+      "subtitle": "Semua yang perlu Anda ketahui tentang GiPos",
+      "q1": "Apakah paket Free benar-benar gratis selamanya?",
+      "a1": "Ya! Paket Free benar-benar gratis selamanya tanpa perlu kartu kredit. Cocok untuk bisnis kecil atau mencoba GiPos.",
+      "q2": "Bisakah saya upgrade atau downgrade paket kapan saja?",
+      "a2": "Tentu saja! Anda dapat upgrade atau downgrade paket kapan saja. Perubahan berlaku langsung dan billing disesuaikan secara proporsional.",
+      "q3": "Metode pembayaran apa yang didukung?",
+      "a3": "Kami mendukung Tunai, QRIS, dan e-wallet utama (GoPay, OVO, ShopeePay, DANA). Transfer bank juga tersedia untuk paket Pro ke atas.",
+      "q4": "Apakah saya perlu hardware khusus untuk menggunakan GiPos?",
+      "a4": "Tidak perlu hardware khusus! GiPos bekerja di perangkat apa pun - ponsel, tablet, atau komputer. Anda bisa gunakan kamera perangkat untuk scan barcode.",
+      "q5": "Bisakah saya menggunakan GiPos secara offline?",
+      "a5": "Ya! Paket Pro ke atas termasuk mode offline. Data Anda akan tersinkronisasi otomatis saat online kembali.",
+      "q6": "Apakah data saya aman?",
+      "a6": "Sangat aman. Kami menggunakan enkripsi tingkat bank, backup reguler, dan menyimpan data di data center yang aman. Data Anda aman bersama kami.",
+      "q7": "Bisakah saya export data saya?",
+      "a7": "Ya! Paket Basic ke atas dapat export laporan ke Excel dan PDF. Data Anda sepenuhnya milik Anda.",
+      "q8": "Apakah ada pelatihan atau onboarding?",
+      "a8": "Ya! Kami menyediakan dokumentasi, video tutorial, dan dukungan email untuk semua paket. Pelanggan Enterprise mendapat onboarding khusus dan pelatihan custom."
+    },
+    "terms": {
+      "heading": "Syarat & Ketentuan",
+      "lastUpdated": "Terakhir diperbarui: Januari 2024",
+      "section1": {
+        "title": "Penerimaan Ketentuan",
+        "content": "Dengan mengakses dan menggunakan GiPos, Anda menerima dan setuju untuk terikat dengan Syarat dan Ketentuan ini. Jika Anda tidak setuju dengan syarat ini, mohon tidak menggunakan layanan kami."
+      },
+      "section2": {
+        "title": "Deskripsi Layanan",
+        "content": "GiPos adalah platform Point of Sale (POS) berbasis cloud sebagai layanan (SaaS) yang dirancang untuk bisnis retail di Indonesia. Kami menyediakan alat untuk manajemen penjualan, pelacakan inventori, pelaporan, dan manajemen pelanggan."
+      },
+      "section3": {
+        "title": "Akun Pengguna",
+        "content": "Anda bertanggung jawab untuk menjaga kerahasiaan kredensial akun Anda. Anda setuju untuk memberi tahu kami segera jika ada penggunaan tidak sah pada akun Anda. Anda bertanggung jawab atas semua aktivitas yang terjadi di bawah akun Anda."
+      },
+      "section4": {
+        "title": "Langganan dan Pembayaran",
+        "content": "Biaya langganan ditagih bulanan atau tahunan berdasarkan paket yang Anda pilih. Semua biaya dalam Rupiah Indonesia (IDR). Anda dapat membatalkan langganan kapan saja, tetapi tidak ada pengembalian dana untuk bulan parsial."
+      },
+      "section5": {
+        "title": "Data dan Privasi",
+        "content": "Kami mengumpulkan dan memproses data Anda sesuai dengan Kebijakan Privasi kami. Anda mempertahankan semua hak atas data bisnis Anda. Kami tidak akan pernah menjual data Anda ke pihak ketiga."
+      },
+      "section6": {
+        "title": "Ketersediaan Layanan",
+        "content": "Kami berusaha menyediakan uptime 99,9% untuk paket Pro ke atas. Namun, kami tidak menjamin layanan tanpa gangguan dan tidak bertanggung jawab atas downtime atau kehilangan data."
+      },
+      "section7": {
+        "title": "Penggunaan yang Dilarang",
+        "content": "Anda tidak boleh menggunakan GiPos untuk aktivitas ilegal, mengirimkan kode berbahaya, atau melanggar hukum yang berlaku. Kami berhak menangguhkan akun yang melanggar ketentuan ini."
+      },
+      "section8": {
+        "title": "Penghentian",
+        "content": "Kami berhak menghentikan atau menangguhkan akun Anda kapan saja karena pelanggaran ketentuan ini. Anda dapat menghentikan akun Anda kapan saja dari pengaturan akun."
+      },
+      "section9": {
+        "title": "Perubahan Ketentuan",
+        "content": "Kami dapat memperbarui ketentuan ini dari waktu ke waktu. Kami akan memberi tahu Anda tentang perubahan signifikan melalui email atau notifikasi in-app."
+      },
+      "section10": {
+        "title": "Kontak",
+        "content": "Untuk pertanyaan tentang ketentuan ini, silakan hubungi kami di legal@gipos.id"
+      }
+    },
+    "privacy": {
+      "heading": "Kebijakan Privasi",
+      "lastUpdated": "Terakhir diperbarui: Januari 2024",
+      "section1": {
+        "title": "Informasi yang Kami Kumpulkan",
+        "content": "Kami mengumpulkan informasi yang Anda berikan langsung (detail akun, informasi bisnis) dan secara otomatis (data penggunaan, informasi perangkat, cookies). Ini membantu kami menyediakan dan meningkatkan layanan kami."
+      },
+      "section2": {
+        "title": "Cara Kami Menggunakan Informasi Anda",
+        "content": "Kami menggunakan informasi Anda untuk menyediakan layanan GiPos, memproses transaksi, mengirim notifikasi, meningkatkan platform kami, dan memberikan dukungan pelanggan. Kami tidak pernah menjual data pribadi Anda ke pihak ketiga."
+      },
+      "section3": {
+        "title": "Keamanan Data",
+        "content": "Kami menerapkan langkah-langkah keamanan standar industri termasuk enkripsi, data center yang aman, backup reguler, dan kontrol akses untuk melindungi data Anda."
+      },
+      "section4": {
+        "title": "Penyimpanan Data",
+        "content": "Kami menyimpan data Anda selama akun Anda aktif. Pengguna paket Free memiliki data yang disimpan selama 30 hari, sementara paket berbayar memiliki penyimpanan unlimited. Setelah penghapusan akun, data dihapus permanen dalam 30 hari."
+      },
+      "section5": {
+        "title": "Layanan Pihak Ketiga",
+        "content": "Kami menggunakan layanan pihak ketiga untuk pembayaran (Xendit/Midtrans), notifikasi (WhatsApp API), dan infrastruktur (cloud hosting). Partner ini dipilih dengan hati-hati dan terikat oleh perjanjian kerahasiaan."
+      },
+      "section6": {
+        "title": "Hak Anda",
+        "content": "Anda memiliki hak untuk mengakses, memperbaiki, mengekspor, atau menghapus data pribadi Anda kapan saja. Anda dapat menjalankan hak-hak ini dari pengaturan akun atau dengan menghubungi dukungan."
+      },
+      "section7": {
+        "title": "Cookies",
+        "content": "Kami menggunakan cookies untuk mempertahankan sesi Anda, mengingat preferensi, dan menganalisis penggunaan. Anda dapat mengontrol pengaturan cookie di browser Anda."
+      },
+      "section8": {
+        "title": "Transfer Data Internasional",
+        "content": "Data Anda terutama disimpan di data center yang berlokasi di Indonesia. Jika data ditransfer secara internasional, kami memastikan perlindungan yang sesuai."
+      },
+      "section9": {
+        "title": "Privasi Anak-anak",
+        "content": "GiPos tidak ditujukan untuk pengguna di bawah 18 tahun. Kami tidak dengan sengaja mengumpulkan informasi dari anak-anak."
+      },
+      "section10": {
+        "title": "Perubahan Kebijakan Privasi",
+        "content": "Kami dapat memperbarui kebijakan privasi ini dari waktu ke waktu. Kami akan memberi tahu Anda tentang perubahan signifikan melalui email atau notifikasi in-app."
+      },
+      "section11": {
+        "title": "Hubungi Kami",
+        "content": "Untuk pertanyaan terkait privasi atau untuk menjalankan hak Anda, hubungi kami di privacy@gipos.id"
+      }
+    },
+    "footer": {
+      "product": "Produk",
+      "features": "Fitur",
+      "pricing": "Harga",
+      "download": "Download",
+      "company": "Perusahaan",
+      "about": "Tentang Kami",
+      "blog": "Blog",
+      "careers": "Karir",
+      "support": "Dukungan",
+      "faq": "FAQ",
+      "documentation": "Dokumentasi",
+      "contact": "Hubungi Kami",
+      "legal": "Legal",
+      "terms": "Syarat & Ketentuan",
+      "privacy": "Kebijakan Privasi",
+      "copyright": "© 2024 GiPos. Hak cipta dilindungi.",
+      "tagline": "POS sederhana untuk bisnis yang berkembang"
+    }
+  }
+}

@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: gipos-postgres
+    environment:
+      POSTGRES_USER: gipos
+      POSTGRES_PASSWORD: gipos_password
+      POSTGRES_DB: gipos_db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gipos -d gipos_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gipos-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: gipos-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gipos-network
+
+  api:
+    image: golang:1.24-alpine
+    container_name: gipos-api
+    environment:
+      APP_ENV: development
+      APP_PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: gipos
+      DB_PASSWORD: gipos_password
+      DB_NAME: gipos_db
+      DB_SSLMODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: change-me-in-production
+      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
+      TZ: Asia/Jakarta
+      GOTOOLCHAIN: auto
+    mem_limit: 1g
+    mem_reservation: 512m
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+      - /app/go/pkg/mod
+    networks:
+      - gipos-network
+    working_dir: /app
+    command: sh -c "echo '🔍 Checking Go version...' && go version && echo '📦 Downloading dependencies...' && go mod download && echo '✅ Dependencies downloaded' && echo '🚀 Starting application...' && go run cmd/api/main.go || (echo '❌ Application failed to start!' && exit 1)"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  gipos-network:
+    driver: bridge
+

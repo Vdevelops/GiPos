@@ -1,0 +1,122 @@
+{
+  "common": {
+    "dashboard": "Dashboard",
+    "pos": "Point of Sale",
+    "products": "Products & Inventory",
+    "customers": "Customers",
+    "reports": "Reports & Analytics",
+    "finance": "Finance",
+    "employees": "Employees & Access",
+    "outlets": "Multi Outlet",
+    "integrations": "External Integrations",
+    "premium": "Premium Features",
+    "settings": "Settings",
+    "help": "Help",
+    "overview": "Overview",
+    "search": "Search...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Success",
+    "confirm": "Confirm",
+    "close": "Close"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "pos": "Point of Sale",
+    "products": "Products & Inventory",
+    "customers": "Customers",
+    "reports": "Reports & Analytics",
+    "finance": "Finance",
+    "employees": "Employees & Access",
+    "outlets": "Multi Outlet",
+    "integrations": "External Integrations",
+    "premium": "Premium Features",
+    "settings": "Settings",
+    "help": "Help",
+    "profile": "Profile",
+    "billing": "Billing"
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Manage your account and application settings",
+    "general": "General",
+    "account": "Account",
+    "notifications": "Notifications",
+    "security": "Security",
+    "billing": "Billing",
+    "language": "Language",
+    "generalSection": {
+      "title": "General Information",
+      "description": "Basic information about your business",
+      "businessName": "Business Name",
+      "email": "Email",
+      "phone": "Phone",
+      "address": "Address",
+      "saveChanges": "Save Changes"
+    },
+    "notificationsSection": {
+      "title": "Notifications",
+      "description": "Manage your notification preferences",
+      "emailNotifications": "Email Notifications",
+      "emailNotificationsDesc": "Receive notifications via email",
+      "pushNotifications": "Push Notifications",
+      "pushNotificationsDesc": "Receive push notifications in browser",
+      "lowStockAlerts": "Low Stock Alerts",
+      "lowStockAlertsDesc": "Get alerts when stock is low",
+      "salesReports": "Sales Reports",
+      "salesReportsDesc": "Send daily sales reports"
+    },
+    "securitySection": {
+      "title": "Security",
+      "description": "Manage your account security",
+      "currentPassword": "Current Password",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm Password",
+      "updatePassword": "Update Password"
+    },
+    "billingSection": {
+      "title": "Billing",
+      "description": "Manage subscription and payments",
+      "currentPlan": "Current Plan",
+      "paymentMethod": "Payment Method",
+      "updatePaymentMethod": "Update Payment Method"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "theme": {
+        "title": "Theme",
+        "description": "Choose how the application looks to you. Choose a single theme, or sync with the system and automatically switch between light and dark themes.",
+        "mode": {
+          "title": "Theme Mode",
+          "description": "Choose the theme mode you want to use",
+          "system": "Sync with system",
+          "light": "Light",
+          "dark": "Dark"
+        },
+        "variant": {
+          "title": "Theme Variant",
+          "description": "Choose a color variant for your theme",
+          "candy": "Candy",
+          "blue": "Blue",
+          "sand": "Sand",
+          "black": "Black",
+          "green": "Green"
+        },
+        "contrast": {
+          "title": "Contrast",
+          "description": "Enable high contrast to improve readability",
+          "high": "High Contrast",
+          "descriptionHigh": "Enable high contrast to improve readability"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,94 @@
+package redis
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"time"
+
+	"gipos/api/internal/core/infrastructure/config"
+
+	"github.com/redis/go-redis/v9"
+)
+
+var (
+	Client *redis.Client
+	ctx    = context.Background()
+)
+
+// Connect initializes Redis connection
+func Connect() error {
+	cfg := config.Get()
+
+	Client = redis.NewClient(&redis.Options{
+		Addr:     cfg.GetRedisAddr(),
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
+
+	// Test connection
+	_, err := Client.Ping(ctx).Result()
+	if err != nil {
+		return fmt.Errorf("failed to connect to Redis: %w", err)
+	}
+
+	log.Println("✅ Redis connected successfully")
+	return nil
+}
+
+// GetClient returns the Redis client
+func GetClient() *redis.Client {
+	if Client == nil {
+		panic("Redis client not initialized, call Connect() first")
+	}
+	return Client
+}
+
+// Set stores a key-value pair with expiration
+func Set(key string, value interface{}, expiration time.Duration) error {
+	return Client.Set(ctx, key, value, expiration).Err()
+}
+
+// Get retrieves a value by key
+func Get(key string) (string, error) {
+	return Client.Get(ctx, key).Result()
+}
+
+// Delete removes a key
+func Delete(key string) error {
+	return Client.Del(ctx, key).Err()
+}
+
+// Exists checks if a key exists
+func Exists(key string) (bool, error) {
+	count, err := Client.Exists(ctx, key).Result()
+	return count > 0, err
+}
+
+// SetRefreshToken stores refresh token in Redis
+func SetRefreshToken(userID string, refreshToken string, expiration time.Duration) error {
+	key := fmt.Sprintf("refresh_token:%s", userID)
+	return Set(key, refreshToken, expiration)
+}
+
+// GetRefreshToken retrieves refresh token from Redis
+func GetRefreshToken(userID string) (string, error) {
+	key := fmt.Sprintf("refresh_token:%s", userID)
+	return Get(key)
+}
+
+// DeleteRefreshToken removes refresh token from Redis
+func DeleteRefreshToken(userID string) error {
+	key := fmt.Sprintf("refresh_token:%s", userID)
+	return Delete(key)
+}
+
+// Close closes the Redis connection
+func Close() error {
+	if Client != nil {
+		return Client.Close()
+	}
+	return nil
+}
+
+

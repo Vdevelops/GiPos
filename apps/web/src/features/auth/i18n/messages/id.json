@@ -1,0 +1,50 @@
+{
+  "auth": {
+    "login": {
+      "title": "Masuk ke GiPos",
+      "subtitle": "Masukkan kredensial Anda untuk melanjutkan",
+      "email": "Email",
+      "password": "Password",
+      "rememberMe": "Ingat saya",
+      "forgotPassword": "Lupa password?",
+      "signIn": "Masuk",
+      "noAccount": "Belum punya akun?",
+      "signUp": "Daftar sekarang",
+      "orContinueWith": "atau lanjutkan dengan",
+      "processing": "Memproses...",
+      "loginSuccess": "Login berhasil",
+      "redirecting": "Mengalihkan ke dashboard..."
+    },
+    "register": {
+      "title": "Buat Akun Baru",
+      "subtitle": "Mulai gratis 14 hari, tanpa kartu kredit",
+      "fullName": "Nama Lengkap",
+      "email": "Email",
+      "password": "Password",
+      "confirmPassword": "Konfirmasi Password",
+      "agreeToTerms": "Saya setuju dengan",
+      "termsAndConditions": "Syarat & Ketentuan",
+      "and": "dan",
+      "privacyPolicy": "Kebijakan Privasi",
+      "createAccount": "Buat Akun",
+      "alreadyHaveAccount": "Sudah punya akun?",
+      "signIn": "Masuk"
+    },
+    "errors": {
+      "invalidCredentials": "Email atau password salah",
+      "emailRequired": "Email wajib diisi",
+      "passwordRequired": "Password wajib diisi",
+      "passwordTooShort": "Password minimal 8 karakter",
+      "passwordsDoNotMatch": "Password tidak cocok",
+      "emailInvalid": "Format email tidak valid",
+      "somethingWentWrong": "Terjadi kesalahan. Silakan coba lagi.",
+      "validationError": "Terdapat kesalahan pada form",
+      "networkError": "Kesalahan jaringan"
+    },
+    "logout": {
+      "title": "Keluar",
+      "success": "Berhasil keluar"
+    }
+  }
+}
+

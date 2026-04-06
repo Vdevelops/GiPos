@@ -1,0 +1,12 @@
+{
+  "name": "@gipos/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "go run cmd/api/main.go",
+    "build": "go build -o bin/api cmd/api/main.go",
+    "start": "go run cmd/api/main.go",
+    "lint": "golangci-lint run ./..."
+  }
+}
+

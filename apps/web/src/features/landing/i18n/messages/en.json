@@ -1,0 +1,287 @@
+{
+  "landing": {
+    "header": {
+      "features": "Features",
+      "pricing": "Pricing",
+      "faq": "FAQ",
+      "login": "Login",
+      "startFree": "Start Free"
+    },
+    "hero": {
+      "headline": "Simple POS for Fast, Growing Businesses.",
+      "subtext": "Manage sales, products, and stock — all in one easy dashboard. GiPos helps you run your store faster, easier, and smarter.",
+      "ctaPrimary": "Start Free Forever",
+      "ctaSecondary": "See Demo"
+    },
+    "about": {
+      "heading": "Made for small businesses that move fast.",
+      "body1": "We built GiPos for real business owners — those who sell, stock, and serve every day.",
+      "body2": "No complicated setup, no training needed.",
+      "body3": "Just install, set up, and start selling in minutes."
+    },
+    "why": {
+      "heading": "Why GiPos?",
+      "body": "Simple solutions for everyday business needs.",
+      "reason1": "Easy to use, even for first-time users.",
+      "reason2": "Works on phones, tablets, or computers.",
+      "reason3": "All your sales and stock in one place.",
+      "reason4": "Local support that actually replies.",
+      "reason5": "Built by a team that understands small business."
+    },
+    "features": {
+      "heading": "Everything You Need, Nothing You Don't.",
+      "body": "GiPos focuses on what matters most — selling faster and managing stock easily.",
+      "feature1": "Fast POS cashier with barcode scanning",
+      "feature2": "Unlimited products & categories management",
+      "feature3": "Real-time multi-warehouse stock tracking",
+      "feature4": "Multi-outlet & franchise support",
+      "feature5": "Digital receipts via email & WhatsApp",
+      "feature6": "Customer loyalty program & points",
+      "feature7": "Advanced reports & analytics dashboard",
+      "feature8": "Cash, QRIS, e-wallet & transfer payments",
+      "feature9": "Role-based access control (RBAC)",
+      "feature10": "Offline mode with auto-sync",
+      "feature11": "Stock opname & transfer between outlets",
+      "feature12": "API integration for marketplace & ERP"
+    },
+    "pricing": {
+      "title": "Choose a plan that fits your business.",
+      "subtitle": "Start small, grow anytime. Free plan available forever — no credit card required.",
+      "free": {
+        "name": "Free",
+        "price": "0",
+        "period": "forever",
+        "description": "Perfect for trying out or very small businesses",
+        "features": [
+          "Basic POS cashier",
+          "Up to 50 products",
+          "Up to 5 categories",
+          "30 days sales history",
+          "Digital receipt (email only)",
+          "Payment: Cash, QRIS",
+          "1 active device",
+          "1 outlet",
+          "1 user (owner)",
+          "Community support"
+        ],
+        "cta": "Start Free"
+      },
+      "basic": {
+        "name": "Basic",
+        "price": "99,000",
+        "period": "month",
+        "description": "Perfect for small SMEs",
+        "features": [
+          "Everything in Free",
+          "Unlimited products & categories",
+          "Unlimited sales history",
+          "Up to 3 users",
+          "Export reports to Excel/PDF",
+          "Basic analytics reports",
+          "Discounts & promotions",
+          "1 active device",
+          "1 outlet",
+          "Email support"
+        ],
+        "cta": "Start Now"
+      },
+      "pro": {
+        "name": "Pro",
+        "price": "199,000",
+        "period": "month",
+        "description": "Perfect for small-medium retail/resto",
+        "features": [
+          "Everything in Basic",
+          "Up to 5 users",
+          "Multi-warehouse stock management",
+          "Stock opname & transfer",
+          "Complete reports (sales, products, finance)",
+          "Automatic WhatsApp notifications",
+          "Payment: + E-wallet, Transfer",
+          "Loyalty program & customer points",
+          "3 active devices",
+          "Email + chat support"
+        ],
+        "cta": "Start Now",
+        "popular": "Most Popular"
+      },
+      "business": {
+        "name": "Business",
+        "price": "399,000",
+        "period": "month",
+        "description": "Perfect for multi outlet",
+        "features": [
+          "Everything in Pro",
+          "Up to 5 outlets",
+          "Up to 10 active devices",
+          "Stock transfer between outlets",
+          "Role-based access control (RBAC)",
+          "Multi-outlet consolidated reports",
+          "Basic API for integration",
+          "Mobile owner dashboard",
+          "Priority support"
+        ],
+        "cta": "Start Now"
+      },
+      "enterprise": {
+        "name": "Enterprise",
+        "price": "Custom",
+        "period": "",
+        "description": "Perfect for large franchises",
+        "features": [
+          "Everything in Business",
+          "Unlimited outlets & devices",
+          "ERP integration (Accurate, Jurnal.id)",
+          "Custom reports & dashboard",
+          "White-label option",
+          "Dedicated support",
+          "SLA guarantee",
+          "Custom training"
+        ],
+        "cta": "Contact Sales"
+      }
+    },
+    "testimonials": {
+      "heading": "Built for real shops, cafés, and small stores.",
+      "body1": "From local retail shops to small restaurants, GiPos helps you keep things running smoothly every day.",
+      "body2": "Join other small business owners who switched to GiPos and never looked back."
+    },
+    "cta": {
+      "heading": "Ready to Grow with GiPos?",
+      "subtext": "Start free forever or try Pro features for 14 days. No setup fees. No contracts.",
+      "ctaPrimary": "Start Free Now",
+      "ctaSecondary": "Schedule a Demo"
+    },
+    "faq": {
+      "heading": "Frequently Asked Questions",
+      "subtitle": "Everything you need to know about GiPos",
+      "q1": "Is the Free plan really free forever?",
+      "a1": "Yes! The Free plan is completely free forever with no credit card required. Perfect for small businesses or trying out GiPos.",
+      "q2": "Can I upgrade or downgrade my plan anytime?",
+      "a2": "Absolutely! You can upgrade or downgrade your plan at any time. Changes take effect immediately, and billing is adjusted pro-rata.",
+      "q3": "What payment methods are supported?",
+      "a3": "We support Cash, QRIS, and major e-wallets (GoPay, OVO, ShopeePay, DANA). Bank transfer is also available for Pro plans and above.",
+      "q4": "Do I need special hardware to use GiPos?",
+      "a4": "No special hardware required! GiPos works on any device - phone, tablet, or computer. You can use your device camera for barcode scanning.",
+      "q5": "Can I use GiPos offline?",
+      "a5": "Yes! Pro plans and above include offline mode. Your data syncs automatically when you're back online.",
+      "q6": "Is my data secure?",
+      "a6": "Absolutely. We use bank-level encryption, regular backups, and store data in secure data centers. Your data is safe with us.",
+      "q7": "Can I export my data?",
+      "a7": "Yes! Basic plan and above can export reports to Excel and PDF. You always own your data.",
+      "q8": "Do you offer training or onboarding?",
+      "a8": "Yes! We provide documentation, video tutorials, and email support for all plans. Enterprise customers get dedicated onboarding and custom training."
+    },
+    "terms": {
+      "heading": "Terms & Conditions",
+      "lastUpdated": "Last updated: January 2024",
+      "section1": {
+        "title": "Acceptance of Terms",
+        "content": "By accessing and using GiPos, you accept and agree to be bound by these Terms and Conditions. If you do not agree to these terms, please do not use our service."
+      },
+      "section2": {
+        "title": "Service Description",
+        "content": "GiPos is a cloud-based Point of Sale (POS) software as a service (SaaS) platform designed for retail businesses in Indonesia. We provide tools for sales management, inventory tracking, reporting, and customer management."
+      },
+      "section3": {
+        "title": "User Accounts",
+        "content": "You are responsible for maintaining the confidentiality of your account credentials. You agree to notify us immediately of any unauthorized use of your account. You are responsible for all activities that occur under your account."
+      },
+      "section4": {
+        "title": "Subscription and Payment",
+        "content": "Subscription fees are billed monthly or annually based on your chosen plan. All fees are in Indonesian Rupiah (IDR). You can cancel your subscription at any time, but no refunds will be provided for partial months."
+      },
+      "section5": {
+        "title": "Data and Privacy",
+        "content": "We collect and process your data according to our Privacy Policy. You retain all rights to your business data. We will never sell your data to third parties."
+      },
+      "section6": {
+        "title": "Service Availability",
+        "content": "We strive to provide 99.9% uptime for Pro plans and above. However, we do not guarantee uninterrupted service and are not liable for any downtime or data loss."
+      },
+      "section7": {
+        "title": "Prohibited Use",
+        "content": "You may not use GiPos for any illegal activities, to transmit harmful code, or to violate any applicable laws. We reserve the right to suspend accounts that violate these terms."
+      },
+      "section8": {
+        "title": "Termination",
+        "content": "We reserve the right to terminate or suspend your account at any time for violation of these terms. You may terminate your account at any time from your account settings."
+      },
+      "section9": {
+        "title": "Changes to Terms",
+        "content": "We may update these terms from time to time. We will notify you of significant changes via email or in-app notification."
+      },
+      "section10": {
+        "title": "Contact",
+        "content": "For questions about these terms, please contact us at legal@gipos.id"
+      }
+    },
+    "privacy": {
+      "heading": "Privacy Policy",
+      "lastUpdated": "Last updated: January 2024",
+      "section1": {
+        "title": "Information We Collect",
+        "content": "We collect information you provide directly (account details, business information) and automatically (usage data, device information, cookies). This helps us provide and improve our service."
+      },
+      "section2": {
+        "title": "How We Use Your Information",
+        "content": "We use your information to provide GiPos services, process transactions, send notifications, improve our platform, and provide customer support. We never sell your personal data to third parties."
+      },
+      "section3": {
+        "title": "Data Security",
+        "content": "We implement industry-standard security measures including encryption, secure data centers, regular backups, and access controls to protect your data."
+      },
+      "section4": {
+        "title": "Data Retention",
+        "content": "We retain your data as long as your account is active. Free plan users have data retained for 30 days, while paid plans have unlimited retention. After account deletion, data is permanently removed within 30 days."
+      },
+      "section5": {
+        "title": "Third-Party Services",
+        "content": "We use third-party services for payments (Xendit/Midtrans), notifications (WhatsApp API), and infrastructure (cloud hosting). These partners are carefully selected and bound by confidentiality agreements."
+      },
+      "section6": {
+        "title": "Your Rights",
+        "content": "You have the right to access, correct, export, or delete your personal data at any time. You can exercise these rights from your account settings or by contacting support."
+      },
+      "section7": {
+        "title": "Cookies",
+        "content": "We use cookies to maintain your session, remember preferences, and analyze usage. You can control cookie settings in your browser."
+      },
+      "section8": {
+        "title": "International Data Transfers",
+        "content": "Your data is primarily stored in data centers located in Indonesia. If data is transferred internationally, we ensure appropriate safeguards are in place."
+      },
+      "section9": {
+        "title": "Children's Privacy",
+        "content": "GiPos is not intended for users under 18 years of age. We do not knowingly collect information from children."
+      },
+      "section10": {
+        "title": "Changes to Privacy Policy",
+        "content": "We may update this privacy policy from time to time. We will notify you of significant changes via email or in-app notification."
+      },
+      "section11": {
+        "title": "Contact Us",
+        "content": "For privacy-related questions or to exercise your rights, contact us at privacy@gipos.id"
+      }
+    },
+    "footer": {
+      "product": "Product",
+      "features": "Features",
+      "pricing": "Pricing",
+      "download": "Download",
+      "company": "Company",
+      "about": "About Us",
+      "blog": "Blog",
+      "careers": "Careers",
+      "support": "Support",
+      "faq": "FAQ",
+      "documentation": "Documentation",
+      "contact": "Contact Us",
+      "legal": "Legal",
+      "terms": "Terms & Conditions",
+      "privacy": "Privacy Policy",
+      "copyright": "© 2024 GiPos. All rights reserved.",
+      "tagline": "Simple POS for growing businesses"
+    }
+  }
+}

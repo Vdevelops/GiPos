@@ -1,0 +1,122 @@
+{
+  "common": {
+    "dashboard": "Dashboard",
+    "pos": "Kasir (POS)",
+    "products": "Produk & Inventori",
+    "customers": "Pelanggan",
+    "reports": "Laporan & Analitik",
+    "finance": "Keuangan",
+    "employees": "Karyawan & Akses",
+    "outlets": "Multi Outlet",
+    "integrations": "Integrasi Eksternal",
+    "premium": "Fitur Premium",
+    "settings": "Pengaturan",
+    "help": "Bantuan",
+    "overview": "Ringkasan",
+    "search": "Cari...",
+    "save": "Simpan",
+    "cancel": "Batal",
+    "delete": "Hapus",
+    "edit": "Edit",
+    "add": "Tambah",
+    "back": "Kembali",
+    "next": "Selanjutnya",
+    "previous": "Sebelumnya",
+    "loading": "Memuat...",
+    "error": "Terjadi kesalahan",
+    "success": "Berhasil",
+    "confirm": "Konfirmasi",
+    "close": "Tutup"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "pos": "Kasir (POS)",
+    "products": "Produk & Inventori",
+    "customers": "Pelanggan",
+    "reports": "Laporan & Analitik",
+    "finance": "Keuangan",
+    "employees": "Karyawan & Akses",
+    "outlets": "Multi Outlet",
+    "integrations": "Integrasi Eksternal",
+    "premium": "Fitur Premium",
+    "settings": "Pengaturan",
+    "help": "Bantuan",
+    "profile": "Profil",
+    "billing": "Tagihan"
+  },
+  "settings": {
+    "title": "Pengaturan",
+    "description": "Kelola pengaturan akun dan aplikasi",
+    "general": "Umum",
+    "account": "Akun",
+    "notifications": "Notifikasi",
+    "security": "Keamanan",
+    "billing": "Billing",
+    "language": "Bahasa",
+    "generalSection": {
+      "title": "Informasi Umum",
+      "description": "Informasi dasar tentang bisnis Anda",
+      "businessName": "Nama Bisnis",
+      "email": "Email",
+      "phone": "Telepon",
+      "address": "Alamat",
+      "saveChanges": "Simpan Perubahan"
+    },
+    "notificationsSection": {
+      "title": "Notifikasi",
+      "description": "Kelola preferensi notifikasi Anda",
+      "emailNotifications": "Notifikasi Email",
+      "emailNotificationsDesc": "Terima notifikasi via email",
+      "pushNotifications": "Notifikasi Push",
+      "pushNotificationsDesc": "Terima notifikasi push di browser",
+      "lowStockAlerts": "Peringatan Stok Rendah",
+      "lowStockAlertsDesc": "Dapatkan peringatan saat stok rendah",
+      "salesReports": "Laporan Penjualan",
+      "salesReportsDesc": "Kirim laporan penjualan harian"
+    },
+    "securitySection": {
+      "title": "Keamanan",
+      "description": "Kelola keamanan akun Anda",
+      "currentPassword": "Password Saat Ini",
+      "newPassword": "Password Baru",
+      "confirmPassword": "Konfirmasi Password",
+      "updatePassword": "Update Password"
+    },
+    "billingSection": {
+      "title": "Billing",
+      "description": "Kelola langganan dan pembayaran",
+      "currentPlan": "Plan Saat Ini",
+      "paymentMethod": "Metode Pembayaran",
+      "updatePaymentMethod": "Update Payment Method"
+    },
+    "appearance": {
+      "title": "Tampilan",
+      "theme": {
+        "title": "Tema",
+        "description": "Pilih bagaimana aplikasi terlihat untuk Anda. Pilih tema tunggal, atau sinkronkan dengan sistem dan otomatis beralih antara tema terang dan gelap.",
+        "mode": {
+          "title": "Mode Tema",
+          "description": "Pilih mode tema yang ingin digunakan",
+          "system": "Sinkronkan dengan sistem",
+          "light": "Terang",
+          "dark": "Gelap"
+        },
+        "variant": {
+          "title": "Varian Tema",
+          "description": "Pilih varian warna untuk tema Anda",
+          "candy": "Candy",
+          "blue": "Blue",
+          "sand": "Sand",
+          "black": "Black",
+          "green": "Green"
+        },
+        "contrast": {
+          "title": "Kontras",
+          "description": "Aktifkan kontras tinggi untuk meningkatkan keterbacaan",
+          "high": "Kontras Tinggi",
+          "descriptionHigh": "Aktifkan kontras tinggi untuk meningkatkan keterbacaan"
+        }
+      }
+    }
+  }
+}

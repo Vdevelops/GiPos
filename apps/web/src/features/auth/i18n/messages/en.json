@@ -1,0 +1,50 @@
+{
+  "auth": {
+    "login": {
+      "title": "Sign in to GiPos",
+      "subtitle": "Enter your credentials to continue",
+      "email": "Email",
+      "password": "Password",
+      "rememberMe": "Remember me",
+      "forgotPassword": "Forgot password?",
+      "signIn": "Sign In",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign up now",
+      "orContinueWith": "or continue with",
+      "processing": "Processing...",
+      "loginSuccess": "Login successful",
+      "redirecting": "Redirecting to dashboard..."
+    },
+    "register": {
+      "title": "Create New Account",
+      "subtitle": "Start free for 14 days, no credit card required",
+      "fullName": "Full Name",
+      "email": "Email",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "agreeToTerms": "I agree to the",
+      "termsAndConditions": "Terms & Conditions",
+      "and": "and",
+      "privacyPolicy": "Privacy Policy",
+      "createAccount": "Create Account",
+      "alreadyHaveAccount": "Already have an account?",
+      "signIn": "Sign In"
+    },
+    "errors": {
+      "invalidCredentials": "Invalid email or password",
+      "emailRequired": "Email is required",
+      "passwordRequired": "Password is required",
+      "passwordTooShort": "Password must be at least 8 characters",
+      "passwordsDoNotMatch": "Passwords do not match",
+      "emailInvalid": "Invalid email format",
+      "somethingWentWrong": "Something went wrong. Please try again.",
+      "validationError": "Form validation error",
+      "networkError": "Network error"
+    },
+    "logout": {
+      "title": "Logout",
+      "success": "Logged out successfully"
+    }
+  }
+}
+
