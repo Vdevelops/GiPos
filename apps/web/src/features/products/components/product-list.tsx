@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Plus, Search, Filter, MoreVertical, Edit, Trash2, Package, Eye } from 'lucide-react';
+import { Plus, Search, MoreVertical, Edit, Trash2, Package, Eye } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,6 +93,9 @@ export function ProductList({
           <h2 className="text-2xl font-bold tracking-tight">{t('productList')}</h2>
           <p className="text-muted-foreground">
             {pagination?.total ?? 0} {t('productsFound')}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {t('stockUpdateHint')}
           </p>
         </div>
         <Button onClick={onAddProduct}>

@@ -1,10 +1,12 @@
 package seeders
 
 import (
+	"errors"
 	"log"
 
 	sharedModels "gipos/api/internal/core/shared/models"
 	"gipos/api/internal/master-data/category_product/data/models"
+	productModels "gipos/api/internal/master-data/products/data/models"
 
 	"gorm.io/gorm"
 )
@@ -46,86 +48,111 @@ type CategorySeeder struct {
 func (s *CategorySeeder) Seed(tenantID uint, outletID *uint) error {
 	log.Println("🌱 Seeding categories...")
 
-	// Check if categories already exist for this tenant
-	var count int64
-	query := s.db.Model(&models.Category{}).Where("tenant_id = ?", tenantID)
-	if outletID != nil {
-		query = query.Where("outlet_id = ? OR outlet_id IS NULL", *outletID)
+	type categorySeed struct {
+		Name        string
+		Slug        string
+		Description string
+		SortOrder   int
 	}
-	query.Count(&count)
-	if count > 0 {
-		log.Println("⚠️  Categories already exist for this tenant, skipping seed")
+
+	targetCategories := []categorySeed{
+		{
+			Name:        "Nasi",
+			Slug:        "nasi",
+			Description: "Kategori untuk menu nasi",
+			SortOrder:   1,
+		},
+		{
+			Name:        "Makanan",
+			Slug:        "makanan",
+			Description: "Kategori untuk menu makanan",
+			SortOrder:   2,
+		},
+		{
+			Name:        "Minuman",
+			Slug:        "minuman",
+			Description: "Kategori untuk menu minuman",
+			SortOrder:   3,
+		},
+	}
+
+	keepIDs := make([]uint, 0, len(targetCategories))
+	for _, target := range targetCategories {
+		var category models.Category
+		query := s.db.Model(&models.Category{}).
+			Where("tenant_id = ? AND slug = ?", tenantID, target.Slug)
+		if outletID != nil {
+			query = query.Where("outlet_id = ? OR outlet_id IS NULL", *outletID)
+		} else {
+			query = query.Where("outlet_id IS NULL")
+		}
+
+		err := query.First(&category).Error
+		if err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+
+			category = models.Category{
+				TenantModel: sharedModels.TenantModel{TenantID: tenantID},
+				OutletID:    outletID,
+				Name:        target.Name,
+				Slug:        target.Slug,
+				Description: target.Description,
+				SortOrder:   target.SortOrder,
+				Status:      "active",
+			}
+			if err := s.db.Create(&category).Error; err != nil {
+				return err
+			}
+			log.Printf("✅ Created category: %s (%s) - ID: %d", category.Name, category.Slug, category.ID)
+		} else {
+			updates := map[string]interface{}{
+				"name":        target.Name,
+				"slug":        target.Slug,
+				"description": target.Description,
+				"sort_order":  target.SortOrder,
+				"status":      "active",
+				"outlet_id":   outletID,
+			}
+			if err := s.db.Model(&models.Category{}).
+				Where("id = ?", category.ID).
+				Updates(updates).Error; err != nil {
+				return err
+			}
+			log.Printf("🔄 Synced category: %s (%s) - ID: %d", target.Name, target.Slug, category.ID)
+		}
+
+		keepIDs = append(keepIDs, category.ID)
+	}
+
+	if len(keepIDs) == 0 {
 		return nil
 	}
 
-	// Seed categories
-	categories := []models.Category{
-		{
-			TenantModel: sharedModels.TenantModel{
-				TenantID: tenantID,
-			},
-			OutletID:    outletID,
-			Name:         "Makanan & Minuman",
-			Slug:         "makanan-minuman",
-			Description:  "Kategori untuk makanan dan minuman",
-			SortOrder:    1,
-			Status:       "active",
-		},
-		{
-			TenantModel: sharedModels.TenantModel{
-				TenantID: tenantID,
-			},
-			OutletID:    outletID,
-			Name:         "Elektronik",
-			Slug:         "elektronik",
-			Description:  "Kategori untuk produk elektronik",
-			SortOrder:    2,
-			Status:       "active",
-		},
-		{
-			TenantModel: sharedModels.TenantModel{
-				TenantID: tenantID,
-			},
-			OutletID:    outletID,
-			Name:         "Pakaian",
-			Slug:         "pakaian",
-			Description:  "Kategori untuk pakaian dan aksesoris",
-			SortOrder:    3,
-			Status:       "active",
-		},
-		{
-			TenantModel: sharedModels.TenantModel{
-				TenantID: tenantID,
-			},
-			OutletID:    outletID,
-			Name:         "Kebutuhan Rumah Tangga",
-			Slug:         "kebutuhan-rumah-tangga",
-			Description:  "Kategori untuk kebutuhan rumah tangga",
-			SortOrder:    4,
-			Status:       "active",
-		},
-		{
-			TenantModel: sharedModels.TenantModel{
-				TenantID: tenantID,
-			},
-			OutletID:    outletID,
-			Name:         "Lainnya",
-			Slug:         "lainnya",
-			Description:  "Kategori untuk produk lainnya",
-			SortOrder:    99,
-			Status:       "active",
-		},
+	fallbackCategoryID := keepIDs[0]
+	productQuery := s.db.Model(&productModels.Product{}).
+		Where("tenant_id = ? AND category_id IS NOT NULL", tenantID)
+	if outletID != nil {
+		productQuery = productQuery.Where("outlet_id = ? OR outlet_id IS NULL", *outletID)
+	}
+	if err := productQuery.
+		Where("category_id NOT IN ?", keepIDs).
+		Update("category_id", fallbackCategoryID).Error; err != nil {
+		return err
 	}
 
-	for i := range categories {
-		if err := s.db.Create(&categories[i]).Error; err != nil {
-			log.Printf("❌ Failed to create category %s: %v", categories[i].Name, err)
-			continue
-		}
-		log.Printf("✅ Created category: %s (%s) - ID: %d", categories[i].Name, categories[i].Slug, categories[i].ID)
+	deleteQuery := s.db.Where("tenant_id = ?", tenantID)
+	if outletID != nil {
+		deleteQuery = deleteQuery.Where("outlet_id = ? OR outlet_id IS NULL", *outletID)
+	} else {
+		deleteQuery = deleteQuery.Where("outlet_id IS NULL")
+	}
+	if err := deleteQuery.Where("id NOT IN ?", keepIDs).Delete(&models.Category{}).Error; err != nil {
+		return err
 	}
 
-	log.Println("✅ Category seeding completed")
+	log.Println("✅ Category seeding completed: synced to Nasi, Makanan, Minuman")
 	return nil
 }
 

@@ -11,6 +11,11 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	defaultTenantEmail = "admin@gipos.id"
+	legacyTenantEmail  = "admin@example.com"
+)
+
 // RunSeeders runs all auth seeders
 func RunSeeders(db *gorm.DB) {
 	seeder := &UserSeeder{db: db}
@@ -28,31 +33,35 @@ type UserSeeder struct {
 func (s *UserSeeder) Seed() error {
 	log.Println("🌱 Seeding users...")
 
-	// Check if users already exist
-	var count int64
-	s.db.Model(&models.User{}).Count(&count)
-	if count > 0 {
-		log.Println("⚠️  Users already exist, skipping seed")
-		return nil
-	}
-
 	// Create default tenant first (if not exists)
 	var tenant sharedModels.Tenant
-	if err := s.db.Where("email = ?", "admin@gipos.id").First(&tenant).Error; err != nil {
+	if err := s.db.Where("email = ?", defaultTenantEmail).First(&tenant).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			tenant = sharedModels.Tenant{
-				BaseModel: sharedModels.BaseModel{},
-				Name:      "GiPos Demo Tenant",
-				Email:     "admin@gipos.id",
-				Phone:     "081234567890",
-				Status:    "active",
-				Plan:      "free",
-				Settings:  "{}", // Empty JSON object for JSONB field
+			// Backward compatibility for previously seeded tenant email.
+			legacyErr := s.db.Where("email = ?", legacyTenantEmail).First(&tenant).Error
+			if legacyErr == nil {
+				if err := s.db.Model(&tenant).Update("email", defaultTenantEmail).Error; err != nil {
+					return err
+				}
+				tenant.Email = defaultTenantEmail
+				log.Printf("🔄 Migrated tenant email from %s to %s", legacyTenantEmail, defaultTenantEmail)
+			} else if errors.Is(legacyErr, gorm.ErrRecordNotFound) {
+				tenant = sharedModels.Tenant{
+					BaseModel: sharedModels.BaseModel{},
+					Name:      "GiPos Demo Tenant",
+					Email:     defaultTenantEmail,
+					Phone:     "081234567890",
+					Status:    "active",
+					Plan:      "free",
+					Settings:  "{}", // Empty JSON object for JSONB field
+				}
+				if err := s.db.Create(&tenant).Error; err != nil {
+					return err
+				}
+				log.Printf("✅ Created default tenant: %d", tenant.ID)
+			} else {
+				return legacyErr
 			}
-			if err := s.db.Create(&tenant).Error; err != nil {
-				return err
-			}
-			log.Printf("✅ Created default tenant: %d", tenant.ID)
 		} else {
 			return err
 		}
@@ -60,8 +69,16 @@ func (s *UserSeeder) Seed() error {
 		log.Printf("✅ Using existing tenant: %d", tenant.ID)
 	}
 
+	// Check if users already exist for this tenant.
+	var count int64
+	s.db.Model(&models.User{}).Where("tenant_id = ?", tenant.ID).Count(&count)
+	if count > 0 {
+		log.Printf("⚠️  Users already exist for tenant %d, skipping seed", tenant.ID)
+		return nil
+	}
+
 	// Default password for all seeded users
-	defaultPassword := "password123"
+	defaultPassword := "admin123"
 	hashedPassword, err := usecase.HashPassword(defaultPassword)
 	if err != nil {
 		return err

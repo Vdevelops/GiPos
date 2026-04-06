@@ -6,7 +6,6 @@ import { ProductList } from './product-list';
 import { ProductForm } from './product-form';
 import { ProductDetail } from './product-detail';
 import { CategoryList } from './category-list';
-import { StockManagement } from './stock-management';
 import { WarehouseList } from './warehouse-list';
 import { useTranslations } from 'next-intl';
 import type { Product } from '../types';
@@ -44,11 +43,10 @@ export function ProductInventory() {
   return (
     <>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="products">{t('products')}</TabsTrigger>
           <TabsTrigger value="categories">{t('categories')}</TabsTrigger>
           <TabsTrigger value="warehouses">{t('warehouses')}</TabsTrigger>
-          <TabsTrigger value="stock">{t('stockManagement')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="products" className="mt-4">
@@ -65,10 +63,6 @@ export function ProductInventory() {
 
         <TabsContent value="warehouses" className="mt-4">
           <WarehouseList />
-        </TabsContent>
-
-        <TabsContent value="stock" className="mt-4">
-          <StockManagement />
         </TabsContent>
       </Tabs>
 

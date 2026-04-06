@@ -531,6 +531,31 @@ var ErrorCodeMap = map[string]ErrorInfo{
 		Message:    "ID shift tidak valid",
 		MessageEn:  "Invalid shift ID",
 	},
+	"INVALID_TENANT_ID": {
+		HTTPStatus: http.StatusBadRequest,
+		Message:    "ID tenant tidak valid",
+		MessageEn:  "Invalid tenant ID",
+	},
+	"INVALID_USER_ID": {
+		HTTPStatus: http.StatusBadRequest,
+		Message:    "ID user tidak valid",
+		MessageEn:  "Invalid user ID",
+	},
+	"INVALID_OUTLET_ID": {
+		HTTPStatus: http.StatusBadRequest,
+		Message:    "ID outlet tidak valid",
+		MessageEn:  "Invalid outlet ID",
+	},
+	"INVALID_PRODUCT_ID": {
+		HTTPStatus: http.StatusBadRequest,
+		Message:    "ID produk tidak valid",
+		MessageEn:  "Invalid product ID",
+	},
+	"INVALID_CUSTOMER_ID": {
+		HTTPStatus: http.StatusBadRequest,
+		Message:    "ID pelanggan tidak valid",
+		MessageEn:  "Invalid customer ID",
+	},
 
 	// System Errors
 	"INTERNAL_SERVER_ERROR": {

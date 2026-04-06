@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	sharedModels "gipos/api/internal/core/shared/models"
@@ -9,7 +10,10 @@ import (
 	"gipos/api/internal/master-data/products/data/repositories"
 	"gipos/api/internal/master-data/products/domain/dto"
 	productRepo "gipos/api/internal/master-data/products/data/repositories"
+	warehouseModels "gipos/api/internal/master-data/warehouse/data/models"
 	warehouseRepo "gipos/api/internal/master-data/warehouse/data/repositories"
+	stockModels "gipos/api/internal/stock/data/models"
+	stockService "gipos/api/internal/stock/domain/service"
 	"gorm.io/gorm"
 )
 
@@ -18,14 +22,24 @@ type ProductStockUsecase struct {
 	stockRepo     *repositories.ProductStockRepository
 	productRepo   *productRepo.ProductRepository
 	warehouseRepo *warehouseRepo.WarehouseRepository
+	stockService  *stockService.StockService
+	db            *gorm.DB
 }
 
 // NewProductStockUsecase creates a new product stock usecase
-func NewProductStockUsecase(stockRepo *repositories.ProductStockRepository, productRepo *productRepo.ProductRepository, warehouseRepo *warehouseRepo.WarehouseRepository) *ProductStockUsecase {
+func NewProductStockUsecase(
+	stockRepo *repositories.ProductStockRepository,
+	productRepo *productRepo.ProductRepository,
+	warehouseRepo *warehouseRepo.WarehouseRepository,
+	stockService *stockService.StockService,
+	db *gorm.DB,
+) *ProductStockUsecase {
 	return &ProductStockUsecase{
 		stockRepo:     stockRepo,
 		productRepo:   productRepo,
 		warehouseRepo: warehouseRepo,
+		stockService:  stockService,
+		db:            db,
 	}
 }
 
@@ -55,19 +69,67 @@ func (uc *ProductStockUsecase) CreateProductStock(tenantID, productID string, re
 		return nil, errors.New("PRODUCT_DOES_NOT_TRACK_STOCK")
 	}
 
+	var actorID *uint
+	if userID != "" {
+		parsedUserID, parseErr := stringToUint(userID)
+		if parseErr == nil {
+			actorID = &parsedUserID
+		}
+	}
+
 	// Convert warehouseID from string to uint
 	warehouseIDUint, err := stringToUint(req.WarehouseID)
 	if err != nil {
-		return nil, errors.New("INVALID_WAREHOUSE_ID")
+		warehouseIDUint = 0
 	}
 
-	// Validate warehouse exists
-	_, err = uc.warehouseRepo.GetByID(tenantIDUint, warehouseIDUint)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("WAREHOUSE_NOT_FOUND")
+	// Validate warehouse exists, otherwise auto-create a default warehouse.
+	warehouseExists := false
+	if warehouseIDUint > 0 {
+		_, err = uc.warehouseRepo.GetByID(tenantIDUint, warehouseIDUint)
+		if err == nil {
+			warehouseExists = true
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("INTERNAL_SERVER_ERROR")
 		}
-		return nil, errors.New("INTERNAL_SERVER_ERROR")
+	}
+
+	if !warehouseExists {
+		var defaultWarehouse warehouseModels.Warehouse
+		defaultWarehouseQuery := uc.db.
+			Where("tenant_id = ? AND is_default = ? AND status = ? AND deleted_at IS NULL", tenantIDUint, true, "active")
+
+		if product.OutletID != nil {
+			defaultWarehouseQuery = defaultWarehouseQuery.Where("(outlet_id = ? OR outlet_id IS NULL)", *product.OutletID)
+		}
+
+		err = defaultWarehouseQuery.Order("id ASC").First(&defaultWarehouse).Error
+		if err == nil {
+			warehouseIDUint = defaultWarehouse.ID
+			warehouseExists = true
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("INTERNAL_SERVER_ERROR")
+		}
+	}
+
+	if !warehouseExists {
+		generatedCode := fmt.Sprintf("AUTO-%d", time.Now().UnixNano())
+		warehouse := &warehouseModels.Warehouse{
+			TenantModel: sharedModels.TenantModel{TenantID: tenantIDUint},
+			OutletID:    product.OutletID,
+			Code:        generatedCode,
+			Name:        "Default Warehouse",
+			Type:        "main",
+			Status:      "active",
+			IsDefault:   true,
+			CreatedBy:   actorID,
+		}
+
+		if err := uc.warehouseRepo.Create(warehouse); err != nil {
+			return nil, errors.New("INTERNAL_SERVER_ERROR")
+		}
+
+		warehouseIDUint = warehouse.ID
 	}
 
 	// Check if stock already exists for this product and warehouse
@@ -157,7 +219,7 @@ func (uc *ProductStockUsecase) GetProductStocksByProductID(tenantID, productID s
 }
 
 // UpdateProductStock updates a product stock
-func (uc *ProductStockUsecase) UpdateProductStock(tenantID, id string, req *dto.UpdateProductStockRequest) (*dto.ProductStockResponse, error) {
+func (uc *ProductStockUsecase) UpdateProductStock(tenantID, id string, req *dto.UpdateProductStockRequest, userID string) (*dto.ProductStockResponse, error) {
 	tenantIDUint, err := stringToUint(tenantID)
 	if err != nil {
 		return nil, errors.New("INVALID_TENANT_ID")
@@ -175,29 +237,72 @@ func (uc *ProductStockUsecase) UpdateProductStock(tenantID, id string, req *dto.
 		return nil, errors.New("INTERNAL_SERVER_ERROR")
 	}
 
-	// Update fields
-	if req.Quantity != nil {
-		stock.Quantity = *req.Quantity
-	}
-	if req.Reserved != nil {
-		stock.Reserved = *req.Reserved
-	}
-	if req.MinStock != nil {
-		stock.MinStock = *req.MinStock
-	}
-	if req.MaxStock != nil {
-		stock.MaxStock = *req.MaxStock
-	}
-
-	// Validate reserved <= quantity
-	if stock.Reserved > stock.Quantity {
-		return nil, errors.New("INVALID_RESERVED_QUANTITY")
+	var actorID *uint
+	if userID != "" {
+		parsedUserID, parseErr := stringToUint(userID)
+		if parseErr == nil {
+			actorID = &parsedUserID
+		}
 	}
 
 	now := time.Now()
-	stock.LastUpdated = &now
+	targetQuantity := stock.Quantity
+	if req.Quantity != nil {
+		targetQuantity = *req.Quantity
+	}
 
-	if err := uc.stockRepo.Update(stock); err != nil {
+	targetReserved := stock.Reserved
+	if req.Reserved != nil {
+		targetReserved = *req.Reserved
+	}
+
+	if targetReserved > targetQuantity {
+		return nil, errors.New("INVALID_RESERVED_QUANTITY")
+	}
+
+	err = uc.db.Transaction(func(tx *gorm.DB) error {
+		if req.Quantity != nil {
+			if err := uc.stockService.SetStockQuantity(tx, stockService.SetStockQuantityRequest{
+				TenantID:       tenantIDUint,
+				StockID:        stock.ID,
+				TargetQuantity: *req.Quantity,
+				ReferenceType:  stockModels.StockMovementRefManual,
+				ReferenceID:    nil,
+				Notes:          "Manual stock update",
+				MovementDate:   now,
+				CreatedBy:      actorID,
+			}); err != nil {
+				return err
+			}
+		}
+
+		updates := map[string]interface{}{
+			"last_updated": now,
+		}
+		if req.Reserved != nil {
+			updates["reserved"] = *req.Reserved
+		}
+		if req.MinStock != nil {
+			updates["min_stock"] = *req.MinStock
+		}
+		if req.MaxStock != nil {
+			updates["max_stock"] = *req.MaxStock
+		}
+
+		if len(updates) > 0 {
+			if err := tx.Model(&productModels.ProductStock{}).
+				Where("id = ? AND tenant_id = ? AND deleted_at IS NULL", stock.ID, tenantIDUint).
+				Updates(updates).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		if err.Error() == "INSUFFICIENT_STOCK" || err.Error() == "STOCK_NEGATIVE" {
+			return nil, errors.New(err.Error())
+		}
 		return nil, errors.New("INTERNAL_SERVER_ERROR")
 	}
 

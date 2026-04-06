@@ -28,7 +28,6 @@ import { Switch } from '@/components/ui/switch';
 import { useCreateWarehouse, useUpdateWarehouse } from '../hooks/use-warehouses';
 import type { Warehouse } from '../types/warehouse';
 
-// Form schema
 const warehouseSchema = z.object({
   code: z.string().min(1, 'Code is required').max(50, 'Code must be at most 50 characters'),
   name: z.string().min(1, 'Name is required').max(200, 'Name must be at most 200 characters'),
@@ -81,7 +80,6 @@ export function WarehouseForm({
 
   const isDefault = watch('is_default');
 
-  // Reset form when warehouse changes
   useEffect(() => {
     if (warehouse && open) {
       reset({
@@ -89,7 +87,12 @@ export function WarehouseForm({
         name: warehouse?.name ?? '',
         address: warehouse?.address ?? '',
         outlet_id: warehouse?.outlet_id ?? null,
-        type: warehouse?.type === 'secondary' ? 'secondary' : warehouse?.type === 'virtual' ? 'virtual' : 'main',
+        type:
+          warehouse?.type === 'secondary'
+            ? 'secondary'
+            : warehouse?.type === 'virtual'
+              ? 'virtual'
+              : 'main',
         status: warehouse?.status === 'inactive' ? 'inactive' : 'active',
         is_default: warehouse?.is_default ?? false,
       });
@@ -129,7 +132,6 @@ export function WarehouseForm({
 
       onOpenChange(false);
     } catch (error) {
-      // Error is handled by mutation hooks
       console.error('Form submission error:', error);
     }
   };
@@ -140,14 +142,8 @@ export function WarehouseForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {isEdit ? t('editWarehouse') : t('addWarehouse')}
-          </DialogTitle>
-          <DialogDescription>
-            {isEdit
-              ? t('editWarehouseDesc')
-              : t('addWarehouseDesc')}
-          </DialogDescription>
+          <DialogTitle>{isEdit ? t('editWarehouse') : t('addWarehouse')}</DialogTitle>
+          <DialogDescription>{isEdit ? t('editWarehouseDesc') : t('addWarehouseDesc')}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -157,14 +153,8 @@ export function WarehouseForm({
                 <Label htmlFor="code">
                   {t('warehouseCode')} <span className="text-destructive">*</span>
                 </Label>
-                <Input
-                  id="code"
-                  {...register('code')}
-                  placeholder="WH-001"
-                />
-                {errors.code && (
-                  <p className="text-sm text-destructive">{errors.code.message}</p>
-                )}
+                <Input id="code" {...register('code')} placeholder="WH-001" />
+                {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
               </div>
 
               <div className="space-y-2">
@@ -176,9 +166,7 @@ export function WarehouseForm({
                   {...register('name')}
                   placeholder={t('warehouseNamePlaceholder')}
                 />
-                {errors.name && (
-                  <p className="text-sm text-destructive">{errors.name.message}</p>
-                )}
+                {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
               </div>
             </div>
 
@@ -216,9 +204,7 @@ export function WarehouseForm({
                 <Label htmlFor="status">{t('status')}</Label>
                 <Select
                   value={watch('status')}
-                  onValueChange={(value) =>
-                    setValue('status', value as 'active' | 'inactive')
-                  }
+                  onValueChange={(value) => setValue('status', value as 'active' | 'inactive')}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -236,14 +222,10 @@ export function WarehouseForm({
                 <Label>{t('isDefaultWarehouse')}</Label>
                 <p className="text-sm text-muted-foreground">{t('isDefaultWarehouseDesc')}</p>
               </div>
-              <Switch
-                checked={isDefault}
-                onCheckedChange={(checked) => setValue('is_default', checked)}
-              />
+              <Switch checked={isDefault} onCheckedChange={(checked) => setValue('is_default', checked)} />
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex justify-end gap-2 pt-4 border-t">
             <Button
               type="button"

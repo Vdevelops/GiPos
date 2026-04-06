@@ -2,7 +2,6 @@
 
 import { Package } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/currency';
 import type { Product } from '@/features/products/types';
@@ -11,23 +10,26 @@ interface POSProductGridProps {
   readonly products: Product[] | undefined;
   readonly isLoading?: boolean;
   readonly onProductClick: (product: Product) => void;
+  readonly isCheckoutLocked?: boolean;
 }
 
 export function POSProductGrid({
   products,
   isLoading = false,
   onProductClick,
+  isCheckoutLocked = false,
 }: POSProductGridProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
         {Array.from({ length: 10 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-4">
-              <Skeleton className="aspect-square w-full mb-3" />
-              <Skeleton className="h-4 w-full mb-2" />
-              <Skeleton className="h-6 w-2/3 mb-2" />
-              <Skeleton className="h-5 w-1/2" />
+          <Card key={i} className="gap-0 overflow-hidden py-0">
+            <CardContent className="p-0">
+              <Skeleton className="aspect-square w-full rounded-t-xl rounded-b-none" />
+              <div className="space-y-1 px-1.5 py-1.5 sm:px-2 sm:py-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-5 w-2/3" />
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -50,48 +52,47 @@ export function POSProductGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
       {productList.map((product) => {
         const price = product?.price ?? 0;
-        const stock = product?.stocks?.[0]?.quantity ?? 0;
-        const isOutOfStock = stock <= 0;
+        const quantity = product?.stocks?.[0]?.quantity ?? 0;
+        const reserved = product?.stocks?.[0]?.reserved ?? 0;
+        const available = Math.max(0, quantity - reserved);
+        const isOutOfStock = available <= 0;
+        const isDisabled = isOutOfStock || isCheckoutLocked;
 
         return (
           <Card
             key={product?.id ?? 'unknown'}
-            className={`cursor-pointer hover:shadow-md transition-shadow ${
-              isOutOfStock ? 'opacity-50' : ''
+            className={`min-w-0 cursor-pointer gap-0 overflow-hidden py-0 transition-shadow hover:shadow-md ${
+              isDisabled ? 'opacity-50' : ''
             }`}
             onClick={() => {
-              if (!isOutOfStock) {
+              if (!isDisabled) {
                 onProductClick(product);
               }
             }}
           >
-            <CardContent className="p-4">
-              <div className="aspect-square bg-muted rounded-lg mb-3 flex items-center justify-center">
+            <CardContent className="p-0">
+              <div className="flex aspect-square w-full items-center justify-center rounded-t-xl rounded-b-none bg-muted overflow-hidden">
                 {product?.images?.[0]?.url ? (
                   <img
                     src={product.images[0].url}
                     alt={product.images[0]?.alt ?? product?.name ?? 'Product'}
-                    className="w-full h-full object-cover rounded-lg"
+                    className="h-full w-full object-cover"
                   />
                 ) : (
                   <Package className="h-12 w-12 text-muted-foreground" />
                 )}
               </div>
-              <h3 className="font-semibold text-sm mb-1 line-clamp-2">
-                {product?.name ?? 'Unknown Product'}
-              </h3>
-              <p className="text-lg font-bold text-primary">
-                {formatCurrency(price)}
-              </p>
-              <Badge
-                variant={isOutOfStock ? 'destructive' : 'outline'}
-                className="mt-2"
-              >
-                Stock: {stock}
-              </Badge>
+              <div className="px-1.5 py-1.5 sm:px-2 sm:py-2">
+                <h3 className="mb-0.5 line-clamp-2 text-xs font-semibold sm:text-sm">
+                  {product?.name ?? 'Unknown Product'}
+                </h3>
+                <p className="text-sm font-bold text-primary sm:text-base">
+                  {formatCurrency(price)}
+                </p>
+              </div>
             </CardContent>
           </Card>
         );

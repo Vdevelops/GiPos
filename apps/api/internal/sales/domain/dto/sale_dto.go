@@ -8,8 +8,7 @@ type CreateSaleRequest struct {
 	Items           []CreateSaleItemRequest `json:"items" binding:"required,min=1,dive"`
 	DiscountAmount  *int64                `json:"discount_amount,omitempty"`
 	DiscountPercent *float64              `json:"discount_percent,omitempty"`
-	Taxable         bool                  `json:"taxable"` // Whether to apply tax
-	PaymentMethod   string                `json:"payment_method" binding:"required,oneof=cash qris e_wallet transfer card"`
+	PaymentMethod   string                `json:"payment_method" binding:"required,oneof=cash qris"`
 	Notes           string                `json:"notes,omitempty"`
 }
 

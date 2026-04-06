@@ -23,7 +23,6 @@ export function WarehouseList() {
   const t = useTranslations('products');
   const tCommon = useTranslations('common');
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
   const [deletingWarehouse, setDeletingWarehouse] = useState<Warehouse | null>(null);
@@ -31,7 +30,6 @@ export function WarehouseList() {
   const { data, isLoading, error } = useWarehouses({
     page,
     per_page: 20,
-    status: statusFilter !== 'all' ? statusFilter : undefined,
   });
 
   const deleteWarehouseMutation = useDeleteWarehouse();
@@ -109,7 +107,7 @@ export function WarehouseList() {
               </div>
             ) : warehouses.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <WarehouseIcon className="h-12 w-12 text-muted-foreground mb-4" />
+                <WarehouseIcon className="mb-4 h-12 w-12 text-muted-foreground" />
                 <p className="text-muted-foreground">{t('noWarehouses')}</p>
                 <Button onClick={handleAddWarehouse} className="mt-4">
                   {t('addFirstWarehouse')}
@@ -131,13 +129,11 @@ export function WarehouseList() {
                           <h3 className="font-semibold">{warehouse?.name ?? 'Unknown'}</h3>
                           {warehouse?.is_default && (
                             <Badge variant="default" className="text-xs">
-                              Default
+                              {t('isDefaultWarehouse')}
                             </Badge>
                           )}
                           <Badge
-                            variant={
-                              warehouse?.status === 'active' ? 'default' : 'secondary'
-                            }
+                            variant={warehouse?.status === 'active' ? 'default' : 'secondary'}
                             className="text-xs"
                           >
                             {warehouse?.status === 'active' ? t('active') : t('inactive')}
@@ -148,9 +144,7 @@ export function WarehouseList() {
                           {warehouse?.outlet && ` • ${warehouse.outlet.name}`}
                         </p>
                         {warehouse?.address && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {warehouse.address}
-                          </p>
+                          <p className="mt-1 text-sm text-muted-foreground">{warehouse.address}</p>
                         )}
                       </div>
                     </div>
@@ -179,9 +173,8 @@ export function WarehouseList() {
                   </div>
                 ))}
 
-                {/* Pagination */}
                 {pagination && pagination.total_pages > 1 && (
-                  <div className="flex items-center justify-between pt-4 border-t">
+                  <div className="flex items-center justify-between border-t pt-4">
                     <p className="text-sm text-muted-foreground">
                       Page {pagination.page} of {pagination.total_pages}
                     </p>
@@ -197,9 +190,7 @@ export function WarehouseList() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() =>
-                          setPage((p) => Math.min(pagination.total_pages, p + 1))
-                        }
+                        onClick={() => setPage((p) => Math.min(pagination.total_pages, p + 1))}
                         disabled={page === pagination.total_pages}
                       >
                         {tCommon('next')}
@@ -213,14 +204,8 @@ export function WarehouseList() {
         </Card>
       </div>
 
-      {/* Warehouse Form Dialog */}
-      <WarehouseForm
-        open={showAddForm}
-        onOpenChange={handleCloseForm}
-        warehouse={editingWarehouse}
-      />
+      <WarehouseForm open={showAddForm} onOpenChange={handleCloseForm} warehouse={editingWarehouse} />
 
-      {/* Delete Dialog */}
       <DeleteDialog
         open={!!deletingWarehouse}
         onOpenChange={(open) => {

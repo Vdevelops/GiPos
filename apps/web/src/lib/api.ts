@@ -70,6 +70,24 @@ async function apiRequest<T>(
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   const fullPath = `${basePath}/${cleanEndpoint}`;
   const url = `${baseUrl}${fullPath}`;
+
+  const getLocalApiFallbackUrl = (): string | null => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    const configuredBaseUrl = baseUrl.toLowerCase();
+    const isLikelyWebOrigin =
+      configuredBaseUrl.includes('localhost:3000') ||
+      configuredBaseUrl.includes('127.0.0.1:3000') ||
+      configuredBaseUrl === window.location.origin.toLowerCase();
+
+    if (!isLikelyWebOrigin) {
+      return null;
+    }
+
+    return `http://localhost:8080${fullPath}`;
+  };
   
   const { requireAuth = false, locale, ...fetchOptions } = options;
   
@@ -111,10 +129,35 @@ async function apiRequest<T>(
   }
   
   try {
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       ...fetchOptions,
       headers: headers as HeadersInit,
     });
+
+    if (response.status === 404) {
+      const fallbackUrl = getLocalApiFallbackUrl();
+      if (fallbackUrl) {
+        const fallbackResponse = await fetch(fallbackUrl, {
+          ...fetchOptions,
+          headers: headers as HeadersInit,
+        });
+
+        if (fallbackResponse.ok || fallbackResponse.status !== 404) {
+          response = fallbackResponse;
+        }
+      }
+    }
+
+    const requestId = response.headers.get('x-request-id') || `req_${Date.now()}`;
+
+    // Some endpoints (e.g. void actions) intentionally return 204 with no response body.
+    if (response.status === 204) {
+      return {
+        success: true,
+        timestamp: new Date().toISOString(),
+        request_id: requestId,
+      };
+    }
     
     // Check if response has content
     const contentType = response.headers.get('content-type');
@@ -122,6 +165,38 @@ async function apiRequest<T>(
     
     if (contentType && contentType.includes('application/json')) {
       data = await response.json() as ApiResponse<T>;
+      // Handle non-2xx status codes
+      if (!response.ok) {
+        // If response has error structure, return it
+        if (data.error) {
+          return data;
+        }
+
+        // Otherwise, create a generic error response
+        const error: ApiError = {
+          code: `HTTP_${response.status}`,
+          message: response.statusText || 'An error occurred',
+          message_en: response.statusText || 'An error occurred',
+        };
+
+        return {
+          success: false,
+          error,
+          timestamp: new Date().toISOString(),
+          request_id: requestId,
+        };
+      }
+
+      return data;
+    }
+
+    // For successful non-JSON responses, treat as success (empty data payload).
+    if (response.ok) {
+      return {
+        success: true,
+        timestamp: new Date().toISOString(),
+        request_id: requestId,
+      };
     } else {
       // If response is not JSON, create error response
       const text = await response.text();
@@ -135,33 +210,9 @@ async function apiRequest<T>(
         success: false,
         error,
         timestamp: new Date().toISOString(),
-        request_id: `req_${Date.now()}`,
+        request_id: requestId,
       };
     }
-    
-    // Handle non-2xx status codes
-    if (!response.ok) {
-      // If response has error structure, return it
-      if (data.error) {
-        return data;
-      }
-      
-      // Otherwise, create a generic error response
-      const error: ApiError = {
-        code: `HTTP_${response.status}`,
-        message: response.statusText || 'An error occurred',
-        message_en: response.statusText || 'An error occurred',
-      };
-      
-      return {
-        success: false,
-        error,
-        timestamp: new Date().toISOString(),
-        request_id: `req_${Date.now()}`,
-      };
-    }
-    
-    return data;
   } catch (error) {
     // Handle network errors
     const apiError: ApiError = {

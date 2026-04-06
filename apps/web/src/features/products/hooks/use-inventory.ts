@@ -21,7 +21,7 @@ export function useProductStocks(productId: string | null) {
       return InventoryService.getProductStocks(productId);
     },
     enabled: !!productId,
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 10 * 1000, // 10 seconds for faster stock refresh
   });
 }
 
@@ -36,7 +36,7 @@ export function useProductTotalStock(productId: string | null) {
       return InventoryService.getProductTotalStock(productId);
     },
     enabled: !!productId,
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 10 * 1000, // 10 seconds for faster stock refresh
   });
 }
 

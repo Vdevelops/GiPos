@@ -29,7 +29,7 @@ type OutletSeeder struct {
 	db *gorm.DB
 }
 
-// Seed seeds initial outlets
+// Seed seeds a single default outlet
 func (s *OutletSeeder) Seed(tenantID uint) error {
 	log.Println("🌱 Seeding outlets...")
 
@@ -41,57 +41,30 @@ func (s *OutletSeeder) Seed(tenantID uint) error {
 		return nil
 	}
 
-	// Seed outlets
-	outlets := []models.Outlet{
-		{
-			TenantModel: sharedModels.TenantModel{
-				TenantID: tenantID,
-			},
-			Code:       "OUTLET-001",
-			Name:       "Outlet Pusat",
-			Address:    "Jl. Merdeka No. 123",
-			City:       "Jakarta",
-			Province:   "DKI Jakarta",
-			PostalCode: "10110",
-			Phone:      "021-12345678",
-			Email:      "pusat@gipos.id",
-			Status:     "active",
-			IsMain:     true,
-			Timezone:   "Asia/Jakarta",
+	// Seed a single outlet
+	outlet := models.Outlet{
+		TenantModel: sharedModels.TenantModel{
+			TenantID: tenantID,
 		},
-		{
-			TenantModel: sharedModels.TenantModel{
-				TenantID: tenantID,
-			},
-			Code:       "OUTLET-002",
-			Name:       "Outlet Cabang A",
-			Address:    "Jl. Sudirman No. 456",
-			City:       "Jakarta",
-			Province:   "DKI Jakarta",
-			PostalCode: "10220",
-			Phone:      "021-87654321",
-			Email:      "cabang-a@gipos.id",
-			Status:     "active",
-			IsMain:     false,
-			Timezone:   "Asia/Jakarta",
-		},
+		Code:       "OUTLET-001",
+		Name:       "Outlet Pusat",
+		Address:    "Jl. Merdeka No. 123",
+		City:       "Jakarta",
+		Province:   "DKI Jakarta",
+		PostalCode: "10110",
+		Phone:      "021-12345678",
+		Email:      "pusat@gipos.id",
+		Status:     "active",
+		IsMain:     true,
+		Timezone:   "Asia/Jakarta",
 	}
 
-	createdCount := 0
-	for i := range outlets {
-		if err := s.db.Create(&outlets[i]).Error; err != nil {
-			log.Printf("❌ Failed to create outlet %s: %v", outlets[i].Code, err)
-			continue
-		}
-		log.Printf("✅ Created outlet: %s (%s) - ID: %d", outlets[i].Code, outlets[i].Name, outlets[i].ID)
-		createdCount++
+	if err := s.db.Create(&outlet).Error; err != nil {
+		log.Printf("❌ Failed to create outlet %s: %v", outlet.Code, err)
+		return nil
 	}
 
-	if createdCount == 0 {
-		log.Println("⚠️  No outlets were created")
-		return nil // Return nil to allow continuation, but log warning
-	}
-
-	log.Printf("✅ Outlet seeding completed: %d outlet(s) created", createdCount)
+	log.Printf("✅ Created outlet: %s (%s) - ID: %d", outlet.Code, outlet.Name, outlet.ID)
+	log.Println("✅ Outlet seeding completed: 1 outlet created")
 	return nil
 }

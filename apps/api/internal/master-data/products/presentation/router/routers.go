@@ -9,6 +9,7 @@ import (
 	productRepos "gipos/api/internal/master-data/products/data/repositories"
 	"gipos/api/internal/master-data/products/domain/usecase"
 	"gipos/api/internal/master-data/products/presentation/handler"
+	stockService "gipos/api/internal/stock/domain/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,10 +24,11 @@ func SetupProductRoutes(r *gin.RouterGroup) {
 	categoryRepo := categoryRepo.NewCategoryRepository(db)
 	outletRepo := outletRepo.NewOutletRepository(db)
 	warehouseRepo := warehouseRepo.NewWarehouseRepository(db)
+	stockSvc := stockService.NewStockService()
 	
 	productUsecase := usecase.NewProductUsecase(productRepo, categoryRepo, outletRepo)
 	productImageUsecase := usecase.NewProductImageUsecase(productImageRepo, productRepo)
-	productStockUsecase := usecase.NewProductStockUsecase(productStockRepo, productRepo, warehouseRepo)
+	productStockUsecase := usecase.NewProductStockUsecase(productStockRepo, productRepo, warehouseRepo, stockSvc, db)
 	
 	productHandler := handler.NewProductHandler(productUsecase)
 	productImageHandler := handler.NewProductImageHandler(productImageUsecase)
@@ -46,18 +48,18 @@ func SetupProductRoutes(r *gin.RouterGroup) {
 		products.DELETE("/:id", productHandler.DeleteProduct)
 
 		// Product Images routes
-		products.POST("/:product_id/images", productImageHandler.CreateProductImage)
-		products.POST("/:product_id/images/bulk", productImageHandler.BulkCreateProductImages)
-		products.GET("/:product_id/images", productImageHandler.GetProductImages)
+		products.POST("/:id/images", productImageHandler.CreateProductImage)
+		products.POST("/:id/images/bulk", productImageHandler.BulkCreateProductImages)
+		products.GET("/:id/images", productImageHandler.GetProductImages)
 		products.GET("/images/:id", productImageHandler.GetProductImage)
 		products.PUT("/images/:id", productImageHandler.UpdateProductImage)
 		products.DELETE("/images/:id", productImageHandler.DeleteProductImage)
 
 		// Product Stocks routes
-		products.POST("/:product_id/stocks", productStockHandler.CreateProductStock)
-		products.POST("/:product_id/stocks/bulk", productStockHandler.BulkCreateProductStocks)
-		products.GET("/:product_id/stocks", productStockHandler.GetProductStocks)
-		products.GET("/:product_id/stocks/total", productStockHandler.GetProductTotalStock)
+		products.POST("/:id/stocks", productStockHandler.CreateProductStock)
+		products.POST("/:id/stocks/bulk", productStockHandler.BulkCreateProductStocks)
+		products.GET("/:id/stocks", productStockHandler.GetProductStocks)
+		products.GET("/:id/stocks/total", productStockHandler.GetProductTotalStock)
 		products.GET("/stocks/:id", productStockHandler.GetProductStock)
 		products.PUT("/stocks/:id", productStockHandler.UpdateProductStock)
 		products.DELETE("/stocks/:id", productStockHandler.DeleteProductStock)

@@ -73,36 +73,32 @@ func (uc *PaymentUsecase) ProcessPayment(tenantID string, req *dto.ProcessPaymen
 		TenantModel: sharedModels.TenantModel{
 			TenantID: tenantIDUint,
 		},
-		SaleID: saleIDUint,
-		Method: req.Method,
-		Amount: req.Amount,
-		Status: models.PaymentStatusPending,
+		SaleID:          saleIDUint,
+		Method:          req.Method,
+		Amount:          req.Amount,
+		Status:          models.PaymentStatusCompleted,
+		GatewayResponse: "{}",
 	}
+	var changeAmount *int64
 
 	// Set method-specific fields
 	if req.Method == models.PaymentMethodCash {
-		if req.CashReceived == nil || *req.CashReceived < req.Amount {
+		amountPaid := req.AmountPaid
+		if amountPaid == nil {
+			amountPaid = req.CashReceived
+		}
+		if amountPaid == nil || *amountPaid < req.Amount {
 			return nil, errors.New("INSUFFICIENT_BALANCE")
 		}
-		// Cash payment is completed immediately
-		payment.Status = models.PaymentStatusCompleted
-		now := time.Now()
-		payment.PaidAt = &now
-	} else if req.Method == models.PaymentMethodEWallet {
-		if req.EWalletType == nil {
-			return nil, errors.New("E_WALLET_TYPE_REQUIRED")
-		}
-		payment.EWalletType = req.EWalletType
-		// E-wallet payment will be completed via webhook
-	} else if req.Method == models.PaymentMethodTransfer {
-		if req.BankName != nil {
-			payment.BankName = req.BankName
-		}
-		if req.AccountNumber != nil {
-			payment.AccountNumber = req.AccountNumber
-		}
-		// Transfer payment requires manual confirmation
+		change := *amountPaid - req.Amount
+		changeAmount = &change
+	} else if req.Method != models.PaymentMethodQRIS {
+		return nil, errors.New("PAYMENT_METHOD_MISMATCH")
 	}
+
+	// Both cash and qris are completed immediately in POS flow.
+	now := time.Now()
+	payment.PaidAt = &now
 
 	if err := uc.paymentRepo.Create(payment); err != nil {
 		return nil, errors.New("INTERNAL_SERVER_ERROR")
@@ -128,7 +124,12 @@ func (uc *PaymentUsecase) ProcessPayment(tenantID string, req *dto.ProcessPaymen
 		return nil, errors.New("INTERNAL_SERVER_ERROR")
 	}
 
-	return toPaymentResponse(payment), nil
+	paymentResponse := toPaymentResponse(payment)
+	if changeAmount != nil {
+		paymentResponse.Change = changeAmount
+	}
+
+	return paymentResponse, nil
 }
 
 // UpdatePaymentStatus updates payment status (for webhooks or manual confirmation)

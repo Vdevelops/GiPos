@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -104,10 +105,11 @@ func main() {
 
 	// Setup routes
 	log.Println("🛣️  Setting up routes...")
-	if err := func() error {
+	if err := func() (setupErr error) {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("❌ PANIC: Route setup failed: %v", r)
+				setupErr = fmt.Errorf("route setup panic: %v", r)
 			}
 		}()
 		approuter.SetupRoutes(router)

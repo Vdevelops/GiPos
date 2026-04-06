@@ -35,6 +35,7 @@ type StockMovement struct {
 	BalanceAfter  int     `gorm:"type:integer;not null" json:"balance_after"` // Stock after movement
 	ReferenceType string  `gorm:"type:varchar(50);index:idx_stock_movement_ref" json:"reference_type"` // sale, purchase, adjustment, transfer, opname, manual
 	ReferenceID   *uint `gorm:"index:idx_stock_movement_ref" json:"reference_id,omitempty"` // ID of reference (sale_id, etc.)
+	IdempotencyKey *string `gorm:"type:varchar(120);index:idx_stock_movement_idempotency" json:"idempotency_key,omitempty"` // Used to deduplicate retries safely
 	Notes         string  `gorm:"type:text" json:"notes,omitempty"` // Additional notes
 	MovementDate  time.Time `gorm:"type:timestamp;not null;index:idx_stock_movement_date" json:"movement_date"` // Date of movement
 	CreatedBy     *uint `gorm:"index" json:"created_by,omitempty"`
