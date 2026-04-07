@@ -140,8 +140,8 @@ func Load() (*Config, error) {
 		},
 		JWT: JWTConfig{
 			Secret:             getEnv("JWT_SECRET", "change-me-in-production"),
-			AccessTokenExpiry:  parseDuration(getEnv("JWT_ACCESS_TOKEN_EXPIRY", "24h")),
-			RefreshTokenExpiry: parseDuration(getEnv("JWT_REFRESH_TOKEN_EXPIRY", "7d")),
+			AccessTokenExpiry:  parseDurationWithDefault(getEnv("JWT_ACCESS_TOKEN_EXPIRY", "24h"), 24*time.Hour),
+			RefreshTokenExpiry: parseDurationWithDefault(getEnv("JWT_REFRESH_TOKEN_EXPIRY", "24h"), 24*time.Hour),
 		},
 		CORS: CORSConfig{
 			AllowedOrigins: parseStringSlice(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")),
@@ -220,9 +220,27 @@ func parseInt(s string) int {
 }
 
 func parseDuration(s string) time.Duration {
-	d, err := time.ParseDuration(s)
+	return parseDurationWithDefault(s, 15*time.Second)
+}
+
+func parseDurationWithDefault(s string, fallback time.Duration) time.Duration {
+	normalized := strings.TrimSpace(strings.ToLower(s))
+	if normalized == "" {
+		return fallback
+	}
+
+	if strings.HasSuffix(normalized, "d") {
+		daysPart := strings.TrimSuffix(normalized, "d")
+		days, err := strconv.Atoi(daysPart)
+		if err != nil || days <= 0 {
+			return fallback
+		}
+		return time.Duration(days) * 24 * time.Hour
+	}
+
+	d, err := time.ParseDuration(normalized)
 	if err != nil {
-		return 15 * time.Second
+		return fallback
 	}
 	return d
 }

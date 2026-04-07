@@ -2,9 +2,12 @@ package usecase
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
+	redisInfra "gipos/api/internal/core/infrastructure/redis"
 	sharedModels "gipos/api/internal/core/shared/models"
+	reportRepo "gipos/api/internal/reports/data/repositories"
 	"gipos/api/internal/sales/data/models"
 	"gipos/api/internal/sales/data/repositories"
 	"gipos/api/internal/sales/domain/dto"
@@ -16,13 +19,17 @@ import (
 type PaymentUsecase struct {
 	paymentRepo *repositories.PaymentRepository
 	saleRepo    *repositories.SaleRepository
+	reportRepo  *reportRepo.ReportRepository
+	db          *gorm.DB
 }
 
 // NewPaymentUsecase creates a new payment usecase
-func NewPaymentUsecase(paymentRepo *repositories.PaymentRepository, saleRepo *repositories.SaleRepository) *PaymentUsecase {
+func NewPaymentUsecase(paymentRepo *repositories.PaymentRepository, saleRepo *repositories.SaleRepository, reportRepo *reportRepo.ReportRepository, db *gorm.DB) *PaymentUsecase {
 	return &PaymentUsecase{
 		paymentRepo: paymentRepo,
 		saleRepo:    saleRepo,
+		reportRepo:  reportRepo,
+		db:          db,
 	}
 }
 
@@ -62,12 +69,6 @@ func (uc *PaymentUsecase) ProcessPayment(tenantID string, req *dto.ProcessPaymen
 		return nil, errors.New("PAYMENT_METHOD_MISMATCH")
 	}
 
-	// Check if payment already exists
-	existingPayment, _ := uc.paymentRepo.GetBySaleID(tenantIDUint, saleIDUint)
-	if existingPayment != nil {
-		return nil, errors.New("PAYMENT_ALREADY_PROCESSED")
-	}
-
 	// Create payment
 	payment := &models.Payment{
 		TenantModel: sharedModels.TenantModel{
@@ -100,22 +101,63 @@ func (uc *PaymentUsecase) ProcessPayment(tenantID string, req *dto.ProcessPaymen
 	now := time.Now()
 	payment.PaidAt = &now
 
-	if err := uc.paymentRepo.Create(payment); err != nil {
+	err = uc.db.Transaction(func(tx *gorm.DB) error {
+		var existingPayment models.Payment
+		err := tx.Where("tenant_id = ? AND sale_id = ? AND deleted_at IS NULL", tenantIDUint, saleIDUint).
+			First(&existingPayment).Error
+		if err == nil {
+			return errors.New("PAYMENT_ALREADY_PROCESSED")
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		if err := tx.Create(payment).Error; err != nil {
+			if errors.Is(err, gorm.ErrDuplicatedKey) {
+				return errors.New("PAYMENT_ALREADY_PROCESSED")
+			}
+			return err
+		}
+
+		sale.PaymentStatus = payment.Status
+		paymentID := uintToString(payment.ID)
+		sale.PaymentID = &paymentID
+		if payment.Status == models.PaymentStatusCompleted {
+			now := time.Now()
+			sale.PaidAt = &now
+			sale.Status = models.SaleStatusCompleted
+			sale.CompletedAt = &now
+		}
+
+		if err := tx.Model(&models.Sale{}).
+			Where("tenant_id = ? AND id = ? AND deleted_at IS NULL", tenantIDUint, saleIDUint).
+			Updates(map[string]interface{}{
+				"payment_status": sale.PaymentStatus,
+				"payment_id":     sale.PaymentID,
+				"paid_at":        sale.PaidAt,
+				"status":         sale.Status,
+				"completed_at":   sale.CompletedAt,
+			}).Error; err != nil {
+			return err
+		}
+
+		if payment.Status == models.PaymentStatusCompleted && uc.reportRepo != nil {
+			if err := uc.reportRepo.RefreshDailyAggregatesForSale(tx, tenantIDUint, saleIDUint); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		if err.Error() == "PAYMENT_ALREADY_PROCESSED" {
+			return nil, errors.New("PAYMENT_ALREADY_PROCESSED")
+		}
 		return nil, errors.New("INTERNAL_SERVER_ERROR")
 	}
 
-	// Update sale payment status and link payment
-	sale.PaymentStatus = payment.Status
-	sale.PaymentID = payment.GatewayID
 	if payment.Status == models.PaymentStatusCompleted {
-		now := time.Now()
-		sale.PaidAt = &now
-		sale.Status = models.SaleStatusCompleted
-		sale.CompletedAt = &now
-	}
-
-	if err := uc.saleRepo.Update(sale); err != nil {
-		return nil, errors.New("INTERNAL_SERVER_ERROR")
+		uc.invalidateReportsCache(tenantIDUint)
 	}
 
 	// Reload payment
@@ -186,11 +228,16 @@ func (uc *PaymentUsecase) UpdatePaymentStatus(tenantID, paymentID string, req *d
 		sale, err := uc.saleRepo.GetByID(tenantIDUint, payment.SaleID)
 		if err == nil {
 			sale.PaymentStatus = models.PaymentStatusCompleted
+			paymentID := uintToString(payment.ID)
+			sale.PaymentID = &paymentID
 			now := time.Now()
 			sale.PaidAt = &now
 			sale.Status = models.SaleStatusCompleted
 			sale.CompletedAt = &now
-			uc.saleRepo.Update(sale)
+			if updateErr := uc.saleRepo.Update(sale); updateErr == nil && uc.reportRepo != nil {
+				_ = uc.reportRepo.RefreshDailyAggregatesForSale(nil, tenantIDUint, payment.SaleID)
+				uc.invalidateReportsCache(tenantIDUint)
+			}
 		}
 	}
 
@@ -201,6 +248,11 @@ func (uc *PaymentUsecase) UpdatePaymentStatus(tenantID, paymentID string, req *d
 	}
 
 	return toPaymentResponse(payment), nil
+}
+
+func (uc *PaymentUsecase) invalidateReportsCache(tenantID uint) {
+	prefix := fmt.Sprintf("reports:tenant:%d:", tenantID)
+	_ = redisInfra.DeleteByPrefix(prefix)
 }
 
 // GetPaymentByID retrieves a payment by ID

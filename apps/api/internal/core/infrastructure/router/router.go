@@ -9,6 +9,7 @@ import (
 	categoryRouter "gipos/api/internal/master-data/category_product/presentation/router"
 	outletRouter "gipos/api/internal/master-data/outlet/presentation/router"
 	productRouter "gipos/api/internal/master-data/products/presentation/router"
+	reportsRouter "gipos/api/internal/reports/presentation/router"
 	warehouseRouter "gipos/api/internal/master-data/warehouse/presentation/router"
 	salesRouter "gipos/api/internal/sales/presentation/router"
 
@@ -59,6 +60,9 @@ func SetupRoutes(router *gin.Engine) {
 
 		// Sales routes
 		salesRouter.SetupSalesRoutes(v1)
+
+		// Reports routes
+		reportsRouter.SetupReportsRoutes(v1)
 	}
 }
 

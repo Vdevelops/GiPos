@@ -49,6 +49,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: change-me-in-production
+      JWT_ACCESS_TOKEN_EXPIRY: 24h
+      JWT_REFRESH_TOKEN_EXPIRY: 24h
       CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
       TZ: Asia/Jakarta
       GOTOOLCHAIN: auto

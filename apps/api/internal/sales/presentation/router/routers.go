@@ -6,6 +6,7 @@ import (
 	outletRepo "gipos/api/internal/master-data/outlet/data/repositories"
 	productRepo "gipos/api/internal/master-data/products/data/repositories"
 	productStockRepo "gipos/api/internal/master-data/products/data/repositories"
+	reportRepo "gipos/api/internal/reports/data/repositories"
 	"gipos/api/internal/sales/data/repositories"
 	"gipos/api/internal/sales/domain/usecase"
 	"gipos/api/internal/sales/presentation/handler"
@@ -25,10 +26,11 @@ func SetupSalesRoutes(r *gin.RouterGroup) {
 	productRepo := productRepo.NewProductRepository(db)
 	productStockRepo := productStockRepo.NewProductStockRepository(db)
 	outletRepo := outletRepo.NewOutletRepository(db)
+	reportsRepo := reportRepo.NewReportRepository(db)
 	stockSvc := stockService.NewStockService()
 
 	saleUsecase := usecase.NewSaleUsecase(saleRepo, saleItemRepo, productRepo, productStockRepo, outletRepo, shiftRepo, stockSvc, db)
-	paymentUsecase := usecase.NewPaymentUsecase(paymentRepo, saleRepo)
+	paymentUsecase := usecase.NewPaymentUsecase(paymentRepo, saleRepo, reportsRepo, db)
 	shiftUsecase := usecase.NewShiftUsecase(shiftRepo, saleRepo, outletRepo)
 
 	saleHandler := handler.NewSaleHandler(saleUsecase)

@@ -381,6 +381,20 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 			return err
 		}
 
+		var persistedTotals struct {
+			Subtotal int64 `gorm:"column:subtotal"`
+			Total    int64 `gorm:"column:total"`
+		}
+		if err := tx.Table("sale_items").
+			Where("tenant_id = ? AND sale_id = ? AND deleted_at IS NULL", tenantIDUint, sale.ID).
+			Select("COALESCE(SUM(subtotal), 0) AS subtotal, COALESCE(SUM(total), 0) AS total").
+			Scan(&persistedTotals).Error; err != nil {
+			return err
+		}
+		if persistedTotals.Subtotal != sale.Subtotal || persistedTotals.Total != sale.Total {
+			return errors.New("ITEMS_TOTAL_MISMATCH")
+		}
+
 		// Deduct stock for each item via centralized stock service.
 		movementDate := time.Now()
 		for _, item := range saleItems {

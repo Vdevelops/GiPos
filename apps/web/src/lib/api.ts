@@ -4,8 +4,12 @@ import type {
   LoginResponse,
   LoginResponseData,
   ApiError,
+  TokenData,
 } from '@/features/auth/types';
 import { tokenStorage } from './token';
+
+const REFRESH_ENDPOINT = 'auth/refresh';
+let refreshPromise: Promise<boolean> | null = null;
 
 /**
  * Get API base URL from environment variable
@@ -56,6 +60,130 @@ interface ApiRequestOptions extends RequestInit {
   locale?: string;
 }
 
+function getLocalApiFallbackUrl(baseUrl: string, fullPath: string): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const configuredBaseUrl = baseUrl.toLowerCase();
+  const isLikelyWebOrigin =
+    configuredBaseUrl.includes('localhost:3000') ||
+    configuredBaseUrl.includes('127.0.0.1:3000') ||
+    configuredBaseUrl === window.location.origin.toLowerCase();
+
+  if (!isLikelyWebOrigin) {
+    return null;
+  }
+
+  return `http://localhost:8080${fullPath}`;
+}
+
+async function executeRequestWithFallback(
+  url: string,
+  fallbackUrl: string | null,
+  fetchOptions: RequestInit,
+  headers: Record<string, string>
+): Promise<Response> {
+  let response = await fetch(url, {
+    ...fetchOptions,
+    headers: headers as HeadersInit,
+  });
+
+  if (response.status === 404 && fallbackUrl) {
+    const fallbackResponse = await fetch(fallbackUrl, {
+      ...fetchOptions,
+      headers: headers as HeadersInit,
+    });
+
+    if (fallbackResponse.ok || fallbackResponse.status !== 404) {
+      response = fallbackResponse;
+    }
+  }
+
+  return response;
+}
+
+function buildUnauthorizedResponse<T>(code: string, message: string): ApiResponse<T> {
+  return {
+    success: false,
+    error: {
+      code,
+      message,
+      message_en: message,
+    },
+    timestamp: new Date().toISOString(),
+    request_id: `req_${Date.now()}`,
+  };
+}
+
+async function refreshAccessToken(baseUrl: string, basePath: string, locale: string): Promise<boolean> {
+  const refreshToken = tokenStorage.getRefreshToken();
+  if (!refreshToken) {
+    return false;
+  }
+
+  const refreshPath = `${basePath}/${REFRESH_ENDPOINT}`;
+  const refreshUrl = `${baseUrl}${refreshPath}`;
+  const refreshFallbackUrl = getLocalApiFallbackUrl(baseUrl, refreshPath);
+
+  const response = await executeRequestWithFallback(
+    refreshUrl,
+    refreshFallbackUrl,
+    {
+      method: 'POST',
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    },
+    {
+      'Content-Type': 'application/json',
+      'X-Locale': locale,
+      'Accept-Language': locale,
+    }
+  );
+
+  if (!response.ok) {
+    return false;
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    return false;
+  }
+
+  const payload = (await response.json()) as ApiResponse<TokenData>;
+  if (!payload.success || !payload.data) {
+    return false;
+  }
+
+  tokenStorage.setAccessToken(payload.data.access_token, payload.data.expires_in);
+  tokenStorage.setRefreshToken(payload.data.refresh_token);
+  return true;
+}
+
+async function refreshAccessTokenSingleFlight(baseUrl: string, basePath: string, locale: string): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const refreshed = await refreshAccessToken(baseUrl, basePath, locale);
+        if (!refreshed) {
+          tokenStorage.clear();
+        }
+        return refreshed;
+      } catch {
+        tokenStorage.clear();
+        return false;
+      }
+    })().finally(() => {
+      refreshPromise = null;
+    });
+  }
+
+  return refreshPromise;
+}
+
+function isRefreshEndpoint(cleanEndpoint: string): boolean {
+  return cleanEndpoint === REFRESH_ENDPOINT || cleanEndpoint.endsWith(`/${REFRESH_ENDPOINT}`);
+}
+
 /**
  * Make API request with standard error handling
  */
@@ -70,24 +198,7 @@ async function apiRequest<T>(
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   const fullPath = `${basePath}/${cleanEndpoint}`;
   const url = `${baseUrl}${fullPath}`;
-
-  const getLocalApiFallbackUrl = (): string | null => {
-    if (typeof window === 'undefined') {
-      return null;
-    }
-
-    const configuredBaseUrl = baseUrl.toLowerCase();
-    const isLikelyWebOrigin =
-      configuredBaseUrl.includes('localhost:3000') ||
-      configuredBaseUrl.includes('127.0.0.1:3000') ||
-      configuredBaseUrl === window.location.origin.toLowerCase();
-
-    if (!isLikelyWebOrigin) {
-      return null;
-    }
-
-    return `http://localhost:8080${fullPath}`;
-  };
+  const fallbackUrl = getLocalApiFallbackUrl(baseUrl, fullPath);
   
   const { requireAuth = false, locale, ...fetchOptions } = options;
   
@@ -122,30 +233,37 @@ async function apiRequest<T>(
   
   // Add authorization header if required (default to true for most API calls)
   if (requireAuth !== false) {
-    const accessToken = tokenStorage.getAccessToken();
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
+    if (tokenStorage.isTokenExpired()) {
+      const refreshed = await refreshAccessTokenSingleFlight(baseUrl, basePath, currentLocale);
+      if (!refreshed) {
+        return buildUnauthorizedResponse<T>('TOKEN_EXPIRED', 'Session expired, please login again');
+      }
     }
+
+    const accessToken = tokenStorage.getAccessToken();
+    if (!accessToken) {
+      return buildUnauthorizedResponse<T>('TOKEN_MISSING', 'Authentication token is missing');
+    }
+
+    headers['Authorization'] = `Bearer ${accessToken}`;
   }
   
   try {
-    let response = await fetch(url, {
-      ...fetchOptions,
-      headers: headers as HeadersInit,
-    });
+    let response = await executeRequestWithFallback(url, fallbackUrl, fetchOptions, headers);
 
-    if (response.status === 404) {
-      const fallbackUrl = getLocalApiFallbackUrl();
-      if (fallbackUrl) {
-        const fallbackResponse = await fetch(fallbackUrl, {
-          ...fetchOptions,
-          headers: headers as HeadersInit,
-        });
-
-        if (fallbackResponse.ok || fallbackResponse.status !== 404) {
-          response = fallbackResponse;
-        }
+    if (response.status === 401 && requireAuth !== false && !isRefreshEndpoint(cleanEndpoint)) {
+      const refreshed = await refreshAccessTokenSingleFlight(baseUrl, basePath, currentLocale);
+      if (!refreshed) {
+        return buildUnauthorizedResponse<T>('TOKEN_EXPIRED', 'Session expired, please login again');
       }
+
+      const refreshedAccessToken = tokenStorage.getAccessToken();
+      if (!refreshedAccessToken) {
+        return buildUnauthorizedResponse<T>('TOKEN_MISSING', 'Authentication token is missing');
+      }
+
+      headers['Authorization'] = `Bearer ${refreshedAccessToken}`;
+      response = await executeRequestWithFallback(url, fallbackUrl, fetchOptions, headers);
     }
 
     const requestId = response.headers.get('x-request-id') || `req_${Date.now()}`;
@@ -237,7 +355,7 @@ export async function login(
   credentials: LoginRequest
 ): Promise<LoginResponse> {
   const response = await apiRequest<LoginResponseData>(
-    '/api/v1/auth/login',
+    'auth/login',
     {
       method: 'POST',
       body: JSON.stringify(credentials),

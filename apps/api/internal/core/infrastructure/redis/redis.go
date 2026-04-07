@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -12,8 +13,9 @@ import (
 )
 
 var (
-	Client *redis.Client
-	ctx    = context.Background()
+	Client              *redis.Client
+	ctx                 = context.Background()
+	ErrRedisUnavailable = errors.New("redis client is not initialized")
 )
 
 // Connect initializes Redis connection
@@ -44,25 +46,75 @@ func GetClient() *redis.Client {
 	return Client
 }
 
+// IsReady indicates whether redis client is initialized.
+func IsReady() bool {
+	return Client != nil
+}
+
 // Set stores a key-value pair with expiration
 func Set(key string, value interface{}, expiration time.Duration) error {
+	if Client == nil {
+		return ErrRedisUnavailable
+	}
 	return Client.Set(ctx, key, value, expiration).Err()
 }
 
 // Get retrieves a value by key
 func Get(key string) (string, error) {
+	if Client == nil {
+		return "", ErrRedisUnavailable
+	}
 	return Client.Get(ctx, key).Result()
 }
 
 // Delete removes a key
 func Delete(key string) error {
+	if Client == nil {
+		return ErrRedisUnavailable
+	}
 	return Client.Del(ctx, key).Err()
 }
 
 // Exists checks if a key exists
 func Exists(key string) (bool, error) {
+	if Client == nil {
+		return false, ErrRedisUnavailable
+	}
 	count, err := Client.Exists(ctx, key).Result()
 	return count > 0, err
+}
+
+// DeleteByPrefix removes all keys matching prefix* pattern.
+func DeleteByPrefix(prefix string) error {
+	if Client == nil {
+		return ErrRedisUnavailable
+	}
+
+	pattern := fmt.Sprintf("%s*", prefix)
+	iter := Client.Scan(ctx, 0, pattern, 200).Iterator()
+	keys := make([]string, 0, 200)
+
+	for iter.Next(ctx) {
+		keys = append(keys, iter.Val())
+		if len(keys) >= 200 {
+			if err := Client.Del(ctx, keys...).Err(); err != nil {
+				return err
+			}
+			keys = keys[:0]
+		}
+	}
+
+	if err := iter.Err(); err != nil {
+		return err
+	}
+
+	if len(keys) > 0 {
+		if err := Client.Del(ctx, keys...).Err(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // SetRefreshToken stores refresh token in Redis
@@ -90,5 +142,3 @@ func Close() error {
 	}
 	return nil
 }
-
-

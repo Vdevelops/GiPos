@@ -351,6 +351,12 @@ func (uc *AuthUsecase) RefreshToken(refreshTokenString string) (*dto.TokenRespon
 		if err != nil {
 			return nil, err
 		}
+
+		// Rotate refresh token in Redis (if available)
+		if err := redis.SetRefreshToken(uintToString(user.ID), refreshToken, uc.cfg.JWT.RefreshTokenExpiry); err != nil {
+			// Graceful degradation: keep flow running if Redis is unavailable
+		}
+
 		return &dto.TokenResponse{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
@@ -374,6 +380,11 @@ func (uc *AuthUsecase) RefreshToken(refreshTokenString string) (*dto.TokenRespon
 	accessToken, refreshToken, expiresIn, err := uc.generateToken(user)
 	if err != nil {
 		return nil, err
+	}
+
+	// Rotate refresh token in Redis (if available)
+	if err := redis.SetRefreshToken(uintToString(user.ID), refreshToken, uc.cfg.JWT.RefreshTokenExpiry); err != nil {
+		// Graceful degradation: keep flow running if Redis is unavailable
 	}
 
 	return &dto.TokenResponse{

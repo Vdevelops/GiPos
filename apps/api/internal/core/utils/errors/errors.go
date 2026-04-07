@@ -486,6 +486,11 @@ var ErrorCodeMap = map[string]ErrorInfo{
 		Message:    "Metode pembayaran tidak sesuai dengan transaksi",
 		MessageEn:  "Payment method does not match transaction",
 	},
+	"ITEMS_TOTAL_MISMATCH": {
+		HTTPStatus: http.StatusConflict,
+		Message:    "Total transaksi tidak konsisten dengan detail item",
+		MessageEn:  "Sale total is inconsistent with item details",
+	},
 	"E_WALLET_TYPE_REQUIRED": {
 		HTTPStatus: http.StatusBadRequest,
 		Message:    "Tipe e-wallet wajib diisi",

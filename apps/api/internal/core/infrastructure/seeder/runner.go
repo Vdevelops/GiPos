@@ -7,7 +7,7 @@ import (
 	outletSeeders "gipos/api/internal/master-data/outlet/data/seeders"
 	productSeeders "gipos/api/internal/master-data/products/data/seeders"
 	warehouseSeeders "gipos/api/internal/master-data/warehouse/data/seeders"
-	salesSeeders "gipos/api/internal/sales/data/seeders"
+	// salesSeeders "gipos/api/internal/sales/data/seeders"
 	stockSeeders "gipos/api/internal/stock/data/seeders"
 
 	"gorm.io/gorm"
@@ -20,7 +20,7 @@ func RunSeeders(db *gorm.DB) {
 	warehouseSeeders.RunSeeders(db)
 	categorySeeders.RunSeeders(db)
 	productSeeders.RunSeeders(db)
-	salesSeeders.RunSeeders(db)
+	// salesSeeders.RunSeeders(db)
 	stockSeeders.RunSeeders(db)
 }
 
