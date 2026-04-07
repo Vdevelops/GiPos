@@ -51,7 +51,7 @@ services:
       JWT_SECRET: change-me-in-production
       JWT_ACCESS_TOKEN_EXPIRY: 24h
       JWT_REFRESH_TOKEN_EXPIRY: 24h
-      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
+      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001,http://192.168.*:3000,http://10.*.*.*:3000,http://172.16.*.*:3000,http://172.17.*.*:3000,http://172.18.*.*:3000,http://172.19.*.*:3000,http://172.2*.*.*:3000,http://172.30.*.*:3000,http://172.31.*.*:3000
       TZ: Asia/Jakarta
       GOTOOLCHAIN: auto
     mem_limit: 1g

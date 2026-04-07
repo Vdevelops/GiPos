@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Search, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Search, ShoppingCart, Wallet } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { usePOS } from '../hooks/use-pos';
 import { POSProductGrid } from './pos-product-grid';
 import { POSCart } from './pos-cart';
@@ -18,6 +19,7 @@ import { cn } from '@/lib/utils';
 export function POSInterface() {
   const t = useTranslations('pos');
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<'all' | string>('all');
   const {
     searchQuery,
@@ -90,6 +92,7 @@ export function POSInterface() {
 
       await processCheckout(outletId, shiftId, method, data);
       setIsMobileCartOpen(false);
+      setIsPaymentModalOpen(false);
     } catch (error) {
       console.error('Payment error:', error);
       // Error is handled by mutation hooks (toast)
@@ -103,7 +106,6 @@ export function POSInterface() {
 
   const renderCartPanel = (options?: {
     className?: string;
-    includePayment?: boolean;
   }) => (
     <div className={cn('flex h-full min-h-0 flex-col bg-background', options?.className)}>
       <div className="border-b p-4">
@@ -129,31 +131,12 @@ export function POSInterface() {
           isLocked={hasPendingSale}
         />
       </div>
-
-      {options?.includePayment && (
-        <PaymentSection
-          subtotal={totals.subtotal}
-          discountAmount={totals.discountAmount}
-          discountPercent={totals.discountPercent}
-          isDiscountAvailable={isWednesdayDiscountAvailable}
-          isDiscountEnabled={isWednesdayDiscountEnabled}
-          onDiscountEnabledChange={updateWednesdayDiscountEnabled}
-          isDiscountToggleDisabled={isProcessing || hasPendingSale}
-          total={totals.total}
-          itemCount={itemCount}
-          isLoading={isProcessing}
-          hasPendingSale={hasPendingSale}
-          pendingReference={pendingSale?.invoiceNumber ?? pendingSale?.id}
-          onPayCash={(amountPaid) => handlePayment('cash', { amount_paid: amountPaid })}
-          onPayQris={() => handlePayment('qris', {})}
-        />
-      )}
     </div>
   );
 
   return (
     <>
-      <div className="grid h-[calc(100dvh-4rem)] min-h-0 grid-cols-1 overflow-hidden md:grid-cols-[minmax(0,1fr)_minmax(14rem,32%)_minmax(14rem,32%)] lg:grid-cols-[minmax(0,1fr)_minmax(16rem,30%)_minmax(16rem,30%)] xl:grid-cols-[minmax(0,1fr)_minmax(18rem,28%)_minmax(18rem,28%)] 2xl:grid-cols-[minmax(0,1fr)_minmax(20rem,26%)_minmax(20rem,26%)]">
+      <div className="grid h-[calc(100dvh-4rem)] min-h-0 grid-cols-1 overflow-hidden md:grid-cols-[minmax(0,1fr)_minmax(16rem,34%)] lg:grid-cols-[minmax(0,1fr)_minmax(18rem,32%)] xl:grid-cols-[minmax(0,1fr)_minmax(20rem,30%)] 2xl:grid-cols-[minmax(0,1fr)_minmax(22rem,28%)]">
         <div className="flex min-w-0 min-h-0 flex-col overflow-hidden p-3 sm:p-4 lg:p-5">
           <div className="mb-3 shrink-0 sm:mb-4">
             <div className="relative">
@@ -205,31 +188,21 @@ export function POSInterface() {
         </div>
 
         <aside className="hidden min-h-0 border-l bg-background md:sticky md:top-0 md:h-[calc(100dvh-4rem)] md:flex-col md:flex">
-          {renderCartPanel({ includePayment: false })}
-        </aside>
-
-        <aside className="hidden min-h-0 border-l bg-muted/20 md:sticky md:top-0 md:h-[calc(100dvh-4rem)] md:flex md:flex-col">
-          <div className="min-h-0 flex-1 overflow-hidden p-4">
-            <PaymentSection
-              subtotal={totals.subtotal}
-              discountAmount={totals.discountAmount}
-              discountPercent={totals.discountPercent}
-              isDiscountAvailable={isWednesdayDiscountAvailable}
-              isDiscountEnabled={isWednesdayDiscountEnabled}
-              onDiscountEnabledChange={updateWednesdayDiscountEnabled}
-              isDiscountToggleDisabled={isProcessing || hasPendingSale}
-              total={totals.total}
-              itemCount={itemCount}
-              isLoading={isProcessing}
-              hasPendingSale={hasPendingSale}
-              pendingReference={pendingSale?.invoiceNumber ?? pendingSale?.id}
-              onPayCash={(amountPaid) => handlePayment('cash', { amount_paid: amountPaid })}
-              onPayQris={() => handlePayment('qris', {})}
-              className="h-full"
-            />
-          </div>
+          {renderCartPanel()}
         </aside>
       </div>
+
+      {itemCount > 0 && (
+        <Button
+          type="button"
+          className="fixed right-4 bottom-20 z-40 h-11 rounded-full px-4 text-sm font-semibold shadow-lg md:bottom-4 md:h-12 md:px-5 md:text-base"
+          onClick={() => setIsPaymentModalOpen(true)}
+          disabled={isProcessing}
+        >
+          <Wallet className="mr-2 h-4 w-4 md:h-5 md:w-5" />
+          Lanjutkan Pembayaran
+        </Button>
+      )}
 
       <Button
         type="button"
@@ -244,9 +217,44 @@ export function POSInterface() {
 
       <Sheet open={isMobileCartOpen} onOpenChange={setIsMobileCartOpen}>
         <SheetContent side="bottom" className="h-[88dvh] rounded-t-2xl p-0 md:hidden">
-          {renderCartPanel({ className: 'border-0', includePayment: true })}
+          {renderCartPanel({ className: 'border-0' })}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
+        <DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto p-0 sm:max-w-xl">
+          <DialogTitle className="sr-only">{t('payment')}</DialogTitle>
+          <div className="flex items-center justify-between border-b px-3 py-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-sm"
+              onClick={() => setIsPaymentModalOpen(false)}
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              Kembali Tambah Produk
+            </Button>
+          </div>
+
+          <PaymentSection
+            subtotal={totals.subtotal}
+            discountAmount={totals.discountAmount}
+            discountPercent={totals.discountPercent}
+            isDiscountAvailable={isWednesdayDiscountAvailable}
+            isDiscountEnabled={isWednesdayDiscountEnabled}
+            onDiscountEnabledChange={updateWednesdayDiscountEnabled}
+            isDiscountToggleDisabled={isProcessing || hasPendingSale}
+            total={totals.total}
+            itemCount={itemCount}
+            isLoading={isProcessing}
+            hasPendingSale={hasPendingSale}
+            pendingReference={pendingSale?.invoiceNumber ?? pendingSale?.id}
+            onPayCash={(amountPaid) => handlePayment('cash', { amount_paid: amountPaid })}
+            onPayQris={() => handlePayment('qris', {})}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

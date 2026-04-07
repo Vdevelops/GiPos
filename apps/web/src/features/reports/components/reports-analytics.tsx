@@ -8,7 +8,6 @@ import {
   DollarSign,
   Eye,
   Package,
-  RefreshCw,
   ShoppingCart,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -426,14 +425,8 @@ export function ReportsAnalytics() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        <span>
-          Date Range: {dateRange.start} to {dateRange.end}
-        </span>
-        <span className="flex items-center gap-1">
-          <RefreshCw className="h-3.5 w-3.5" />
-          Auto refresh every 8 seconds
-        </span>
+      <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        Date Range: {dateRange.start} to {dateRange.end}
       </div>
 
       {hasError && (

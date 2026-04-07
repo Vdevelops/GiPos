@@ -317,8 +317,9 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 	var lastSale models.Sale
 	err = uc.db.Where("tenant_id = ? AND outlet_id = ? AND invoice_number LIKE ?", tenantIDUint, outletIDUint, fmt.Sprintf("INV-%s-%s-%%", dateStr, outletCode)).
 		Order("invoice_number DESC").
-		First(&lastSale).Error
-	if err == nil {
+		Limit(1).
+		Find(&lastSale).Error
+	if err == nil && lastSale.ID != 0 {
 		// Extract sequence from last invoice number
 		// Format: INV-YYYYMMDD-OUTLETCODE-SEQUENCE
 		if len(lastSale.InvoiceNumber) > len(fmt.Sprintf("INV-%s-%s-", dateStr, outletCode)) {
@@ -382,16 +383,29 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 		}
 
 		var persistedTotals struct {
-			Subtotal int64 `gorm:"column:subtotal"`
-			Total    int64 `gorm:"column:total"`
+			Subtotal       int64 `gorm:"column:subtotal"`
+			DiscountAmount int64 `gorm:"column:discount_amount"`
+			TaxAmount      int64 `gorm:"column:tax_amount"`
+			Total          int64 `gorm:"column:total"`
 		}
 		if err := tx.Table("sale_items").
 			Where("tenant_id = ? AND sale_id = ? AND deleted_at IS NULL", tenantIDUint, sale.ID).
-			Select("COALESCE(SUM(subtotal), 0) AS subtotal, COALESCE(SUM(total), 0) AS total").
+			Select("COALESCE(SUM(subtotal), 0) AS subtotal, COALESCE(SUM(discount_amount), 0) AS discount_amount, COALESCE(SUM(tax_amount), 0) AS tax_amount, COALESCE(SUM(total), 0) AS total").
 			Scan(&persistedTotals).Error; err != nil {
 			return err
 		}
-		if persistedTotals.Subtotal != sale.Subtotal || persistedTotals.Total != sale.Total {
+
+		if persistedTotals.Subtotal != sale.Subtotal || persistedTotals.TaxAmount != sale.TaxAmount {
+			return errors.New("ITEMS_TOTAL_MISMATCH")
+		}
+
+		if sale.DiscountAmount < persistedTotals.DiscountAmount {
+			return errors.New("ITEMS_TOTAL_MISMATCH")
+		}
+
+		saleLevelDiscountAmount := sale.DiscountAmount - persistedTotals.DiscountAmount
+		expectedSaleTotal := persistedTotals.Total - saleLevelDiscountAmount
+		if expectedSaleTotal != sale.Total {
 			return errors.New("ITEMS_TOTAL_MISMATCH")
 		}
 
@@ -423,10 +437,12 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 	})
 
 	if err != nil {
-		if err.Error() == "INSUFFICIENT_STOCK" {
-			return nil, errors.New("INSUFFICIENT_STOCK")
+		switch err.Error() {
+		case "INSUFFICIENT_STOCK", "ITEMS_TOTAL_MISMATCH":
+			return nil, errors.New(err.Error())
+		default:
+			return nil, errors.New("INTERNAL_SERVER_ERROR")
 		}
-		return nil, errors.New("INTERNAL_SERVER_ERROR")
 	}
 
 	// Reload sale with relations

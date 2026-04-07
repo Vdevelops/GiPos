@@ -11,17 +11,40 @@ import { tokenStorage } from './token';
 const REFRESH_ENDPOINT = 'auth/refresh';
 let refreshPromise: Promise<boolean> | null = null;
 
+function normalizeBaseUrl(value: string): string {
+  const trimmed = value.trim();
+  return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+}
+
+function normalizeBasePath(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === '/') {
+    return '';
+  }
+
+  const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return withLeadingSlash.endsWith('/') ? withLeadingSlash.slice(0, -1) : withLeadingSlash;
+}
+
+function buildApiPath(basePath: string, endpoint: string): string {
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+  if (!basePath) {
+    return `/${cleanEndpoint}`;
+  }
+  return `${basePath}/${cleanEndpoint}`;
+}
+
 /**
  * Get API base URL from environment variable
  * Defaults to localhost:8080 for development
  */
 function getApiBaseUrl(): string {
+  const configuredUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
   if (typeof window === 'undefined') {
-    // Server-side: use environment variable or default
-    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+    return normalizeBaseUrl(configuredUrl || 'http://localhost:8080');
   }
-  // Client-side: use environment variable or default
-  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+
+  return normalizeBaseUrl(configuredUrl || 'http://localhost:8080');
 }
 
 /**
@@ -29,9 +52,11 @@ function getApiBaseUrl(): string {
  * Defaults to /api/v1 for standard API versioning
  */
 function getApiBasePath(): string {
-  const basePath = process.env.NEXT_PUBLIC_API_BASE_PATH || '/api/v1';
-  // Ensure it starts with / and doesn't end with /
-  return basePath.startsWith('/') ? basePath : `/${basePath}`;
+  const configuredPath = process.env.NEXT_PUBLIC_API_BASE_PATH;
+  if (typeof configuredPath === 'undefined') {
+    return '/api/v1';
+  }
+  return normalizeBasePath(configuredPath);
 }
 
 /**
@@ -60,47 +85,15 @@ interface ApiRequestOptions extends RequestInit {
   locale?: string;
 }
 
-function getLocalApiFallbackUrl(baseUrl: string, fullPath: string): string | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  const configuredBaseUrl = baseUrl.toLowerCase();
-  const isLikelyWebOrigin =
-    configuredBaseUrl.includes('localhost:3000') ||
-    configuredBaseUrl.includes('127.0.0.1:3000') ||
-    configuredBaseUrl === window.location.origin.toLowerCase();
-
-  if (!isLikelyWebOrigin) {
-    return null;
-  }
-
-  return `http://localhost:8080${fullPath}`;
-}
-
-async function executeRequestWithFallback(
+async function executeRequest(
   url: string,
-  fallbackUrl: string | null,
   fetchOptions: RequestInit,
   headers: Record<string, string>
 ): Promise<Response> {
-  let response = await fetch(url, {
+  return fetch(url, {
     ...fetchOptions,
     headers: headers as HeadersInit,
   });
-
-  if (response.status === 404 && fallbackUrl) {
-    const fallbackResponse = await fetch(fallbackUrl, {
-      ...fetchOptions,
-      headers: headers as HeadersInit,
-    });
-
-    if (fallbackResponse.ok || fallbackResponse.status !== 404) {
-      response = fallbackResponse;
-    }
-  }
-
-  return response;
 }
 
 function buildUnauthorizedResponse<T>(code: string, message: string): ApiResponse<T> {
@@ -122,13 +115,11 @@ async function refreshAccessToken(baseUrl: string, basePath: string, locale: str
     return false;
   }
 
-  const refreshPath = `${basePath}/${REFRESH_ENDPOINT}`;
+  const refreshPath = buildApiPath(basePath, REFRESH_ENDPOINT);
   const refreshUrl = `${baseUrl}${refreshPath}`;
-  const refreshFallbackUrl = getLocalApiFallbackUrl(baseUrl, refreshPath);
 
-  const response = await executeRequestWithFallback(
+  const response = await executeRequest(
     refreshUrl,
-    refreshFallbackUrl,
     {
       method: 'POST',
       body: JSON.stringify({ refresh_token: refreshToken }),
@@ -194,11 +185,9 @@ async function apiRequest<T>(
   const baseUrl = getApiBaseUrl();
   const basePath = getApiBasePath();
   
-  // Remove leading slash from endpoint if present, then combine with basePath
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-  const fullPath = `${basePath}/${cleanEndpoint}`;
+  const fullPath = buildApiPath(basePath, cleanEndpoint);
   const url = `${baseUrl}${fullPath}`;
-  const fallbackUrl = getLocalApiFallbackUrl(baseUrl, fullPath);
   
   const { requireAuth = false, locale, ...fetchOptions } = options;
   
@@ -249,7 +238,7 @@ async function apiRequest<T>(
   }
   
   try {
-    let response = await executeRequestWithFallback(url, fallbackUrl, fetchOptions, headers);
+    let response = await executeRequest(url, fetchOptions, headers);
 
     if (response.status === 401 && requireAuth !== false && !isRefreshEndpoint(cleanEndpoint)) {
       const refreshed = await refreshAccessTokenSingleFlight(baseUrl, basePath, currentLocale);
@@ -263,7 +252,7 @@ async function apiRequest<T>(
       }
 
       headers['Authorization'] = `Bearer ${refreshedAccessToken}`;
-      response = await executeRequestWithFallback(url, fallbackUrl, fetchOptions, headers);
+      response = await executeRequest(url, fetchOptions, headers);
     }
 
     const requestId = response.headers.get('x-request-id') || `req_${Date.now()}`;

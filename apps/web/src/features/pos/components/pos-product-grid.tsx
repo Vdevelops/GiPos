@@ -1,7 +1,6 @@
 'use client';
 
 import { Package } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/currency';
 import type { Product } from '@/features/products/types';
@@ -21,17 +20,15 @@ export function POSProductGrid({
 }: POSProductGridProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5">
         {Array.from({ length: 10 }).map((_, i) => (
-          <Card key={i} className="gap-0 overflow-hidden py-0">
-            <CardContent className="p-0">
-              <Skeleton className="aspect-square w-full rounded-t-xl rounded-b-none" />
-              <div className="space-y-1 px-1.5 py-1.5 sm:px-2 sm:py-2">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-5 w-2/3" />
-              </div>
-            </CardContent>
-          </Card>
+          <div key={i} className="overflow-hidden rounded-xl border bg-card text-card-foreground">
+            <Skeleton className="aspect-square w-full rounded-none" />
+            <div className="space-y-1 px-1.5 py-1.5 sm:px-2 sm:py-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-5 w-2/3" />
+            </div>
+          </div>
         ))}
       </div>
     );
@@ -52,7 +49,7 @@ export function POSProductGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5">
       {productList.map((product) => {
         const price = product?.price ?? 0;
         const quantity = product?.stocks?.[0]?.quantity ?? 0;
@@ -62,9 +59,9 @@ export function POSProductGrid({
         const isDisabled = isOutOfStock || isCheckoutLocked;
 
         return (
-          <Card
+          <div
             key={product?.id ?? 'unknown'}
-            className={`min-w-0 cursor-pointer gap-0 overflow-hidden py-0 transition-shadow hover:shadow-md ${
+            className={`min-w-0 cursor-pointer overflow-hidden rounded-xl border bg-card text-card-foreground transition-shadow hover:shadow-md ${
               isDisabled ? 'opacity-50' : ''
             }`}
             onClick={() => {
@@ -73,28 +70,26 @@ export function POSProductGrid({
               }
             }}
           >
-            <CardContent className="p-0">
-              <div className="flex aspect-square w-full items-center justify-center rounded-t-xl rounded-b-none bg-muted overflow-hidden">
-                {product?.images?.[0]?.url ? (
-                  <img
-                    src={product.images[0].url}
-                    alt={product.images[0]?.alt ?? product?.name ?? 'Product'}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <Package className="h-12 w-12 text-muted-foreground" />
-                )}
-              </div>
-              <div className="px-1.5 py-1.5 sm:px-2 sm:py-2">
-                <h3 className="mb-0.5 line-clamp-2 text-xs font-semibold sm:text-sm">
-                  {product?.name ?? 'Unknown Product'}
-                </h3>
-                <p className="text-sm font-bold text-primary sm:text-base">
-                  {formatCurrency(price)}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            <div className="flex aspect-square w-full items-center justify-center overflow-hidden bg-muted">
+              {product?.images?.[0]?.url ? (
+                <img
+                  src={product.images[0].url}
+                  alt={product.images[0]?.alt ?? product?.name ?? 'Product'}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Package className="h-12 w-12 text-muted-foreground" />
+              )}
+            </div>
+            <div className="px-1 py-1.5 sm:px-1.5 sm:py-2">
+              <h3 className="mb-0.5 line-clamp-2 text-base font-semibold sm:text-lg">
+                {product?.name ?? 'Unknown Product'}
+              </h3>
+              <p className="text-sm font-semibold text-primary sm:text-base">
+                {formatCurrency(price)}
+              </p>
+            </div>
+          </div>
         );
       })}
     </div>

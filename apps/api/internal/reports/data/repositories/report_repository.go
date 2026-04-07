@@ -6,6 +6,7 @@ import (
 	reportModels "gipos/api/internal/reports/data/models"
 	salesModels "gipos/api/internal/sales/data/models"
 	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -71,6 +72,9 @@ type ReportRepository struct {
 	db *gorm.DB
 }
 
+// Prevent concurrent warm-up refresh from creating duplicate aggregate rows.
+var refreshDateRangeMutex sync.Mutex
+
 func NewReportRepository(db *gorm.DB) *ReportRepository {
 	return &ReportRepository{db: db}
 }
@@ -100,6 +104,9 @@ func (r *ReportRepository) RefreshDailyAggregatesForSale(tx *gorm.DB, tenantID, 
 
 // RefreshDateRange refreshes summary tables for each day in date range.
 func (r *ReportRepository) RefreshDateRange(tx *gorm.DB, tenantID uint, outletID *uint, startDate, endDate time.Time) error {
+	refreshDateRangeMutex.Lock()
+	defer refreshDateRangeMutex.Unlock()
+
 	db := r.getExecutor(tx)
 	start := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, time.UTC)
 	end := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 0, 0, 0, 0, time.UTC)
