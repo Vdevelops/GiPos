@@ -128,23 +128,23 @@ export function EmployeeAccess() {
                   <h3 className="font-semibold mb-3">Kasir</h3>
                   <div className="space-y-2 pl-4">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                       <span className="text-sm">POS Core - Create Sale</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                       <span className="text-sm">POS Core - Refund</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                       <span className="text-sm">Produk - Read</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <XCircle className="h-4 w-4 text-red-500" />
+                      <XCircle className="h-4 w-4 text-destructive" />
                       <span className="text-sm">Produk - Create/Update/Delete</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <XCircle className="h-4 w-4 text-red-500" />
+                      <XCircle className="h-4 w-4 text-destructive" />
                       <span className="text-sm">Laporan - View</span>
                     </div>
                   </div>
@@ -153,19 +153,19 @@ export function EmployeeAccess() {
                   <h3 className="font-semibold mb-3">Manager</h3>
                   <div className="space-y-2 pl-4">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                       <span className="text-sm">Semua akses Kasir</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                       <span className="text-sm">Produk - Full Access</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                       <span className="text-sm">Laporan - View & Export</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                       <span className="text-sm">Approve Refund/Diskon</span>
                     </div>
                   </div>

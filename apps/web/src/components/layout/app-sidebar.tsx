@@ -115,12 +115,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Link href="/">
-                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-9 items-center justify-center rounded-xl shadow-xs">
                   <ShoppingCart className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">GiPos</span>
-                  <span className="text-xs">Point of Sale</span>
+                  <span className="font-semibold tracking-tight">GiPos CRM</span>
+                  <span className="text-xs text-sidebar-foreground/70">Business Command Center</span>
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -131,7 +131,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <Search className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 opacity-50" />
             <Input
               placeholder={t('common.search')}
-              className="h-8 pl-8 bg-background"
+              className="h-9 pl-8 bg-background/80"
             />
           </div>
         </div>

@@ -107,7 +107,7 @@ export function ShiftCloseDialog({
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">{t('totalSales')}</span>
-                <span className="font-medium text-green-600">
+                <span className="font-medium text-success">
                   {formatCurrency(shift?.total_sales ?? 0)}
                 </span>
               </div>
@@ -143,7 +143,7 @@ export function ShiftCloseDialog({
                     <span className="text-sm text-muted-foreground">{t('difference')}</span>
                     <span
                       className={`font-semibold ${
-                        difference >= 0 ? 'text-green-600' : 'text-destructive'
+                        difference >= 0 ? 'text-success' : 'text-destructive'
                       }`}
                     >
                       {formatCurrency(difference)}

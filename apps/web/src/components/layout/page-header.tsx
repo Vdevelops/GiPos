@@ -21,28 +21,31 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, breadcrumbItems }: PageHeaderProps) {
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+    <header className="flex min-h-20 shrink-0 items-center gap-3 border-b border-border/70 px-4 py-3 md:px-6">
       <SidebarTrigger className="-ml-1" />
       <Separator
         orientation="vertical"
-        className="mr-2 data-[orientation=vertical]:h-4"
+        className="mr-1 data-[orientation=vertical]:h-5"
       />
-      <Breadcrumb className="flex-1">
-        <BreadcrumbList>
-          {breadcrumbItems?.map((item, index) => (
-            <React.Fragment key={index}>
-              {index > 0 && <BreadcrumbSeparator className="hidden md:flex" />}
-              <BreadcrumbItem className={index > 0 ? "hidden md:inline-flex" : ""}>
-                {item.href ? (
-                  <BreadcrumbLink href={item.href}>{item.label}</BreadcrumbLink>
-                ) : (
-                  <BreadcrumbPage>{item.label}</BreadcrumbPage>
-                )}
-              </BreadcrumbItem>
-            </React.Fragment>
-          ))}
-        </BreadcrumbList>
-      </Breadcrumb>
+      <div className="flex flex-1 flex-col gap-1">
+        <Breadcrumb>
+          <BreadcrumbList>
+            {breadcrumbItems?.map((item, index) => (
+              <React.Fragment key={index}>
+                {index > 0 && <BreadcrumbSeparator className="hidden md:flex" />}
+                <BreadcrumbItem className={index > 0 ? "hidden md:inline-flex" : ""}>
+                  {item.href ? (
+                    <BreadcrumbLink href={item.href}>{item.label}</BreadcrumbLink>
+                  ) : (
+                    <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                  )}
+                </BreadcrumbItem>
+              </React.Fragment>
+            ))}
+          </BreadcrumbList>
+        </Breadcrumb>
+        <h1 className="text-lg font-semibold tracking-tight md:text-xl">{title}</h1>
+      </div>
       <div className="ml-auto flex items-center gap-2">
         <ThemeToggle />
         <LanguageSwitcher />

@@ -47,11 +47,11 @@ export function FinanceManagement() {
           <div className="flex gap-4 mt-4">
             <div>
               <p className="text-sm text-muted-foreground">Total Pemasukan</p>
-              <p className="text-lg font-semibold text-green-600">Rp 20.000.000</p>
+              <p className="text-lg font-semibold text-success">Rp 20.000.000</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total Pengeluaran</p>
-              <p className="text-lg font-semibold text-red-600">Rp 5.000.000</p>
+              <p className="text-lg font-semibold text-destructive">Rp 5.000.000</p>
             </div>
           </div>
         </CardContent>
@@ -88,40 +88,40 @@ export function FinanceManagement() {
                   <TableRow>
                     <TableCell>01 Jan 2024</TableCell>
                     <TableCell>
-                      <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+                      <Badge className="bg-success/15 text-success border-success/30">
                         <ArrowUp className="h-3 w-3 mr-1" />
                         Pemasukan
                       </Badge>
                     </TableCell>
                     <TableCell>Penjualan</TableCell>
                     <TableCell>Transaksi harian</TableCell>
-                    <TableCell className="text-green-600 font-semibold">+Rp 2.500.000</TableCell>
+                    <TableCell className="text-success font-semibold">+Rp 2.500.000</TableCell>
                     <TableCell>QRIS</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell>01 Jan 2024</TableCell>
                     <TableCell>
-                      <Badge className="bg-red-500/10 text-red-600 border-red-500/20">
+                      <Badge className="bg-destructive/15 text-destructive border-destructive/30">
                         <ArrowDown className="h-3 w-3 mr-1" />
                         Pengeluaran
                       </Badge>
                     </TableCell>
                     <TableCell>Gaji</TableCell>
                     <TableCell>Gaji karyawan bulanan</TableCell>
-                    <TableCell className="text-red-600 font-semibold">-Rp 5.000.000</TableCell>
+                    <TableCell className="text-destructive font-semibold">-Rp 5.000.000</TableCell>
                     <TableCell>Transfer</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell>31 Des 2023</TableCell>
                     <TableCell>
-                      <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+                      <Badge className="bg-success/15 text-success border-success/30">
                         <ArrowUp className="h-3 w-3 mr-1" />
                         Pemasukan
                       </Badge>
                     </TableCell>
                     <TableCell>Top-up</TableCell>
                     <TableCell>Top-up modal</TableCell>
-                    <TableCell className="text-green-600 font-semibold">+Rp 10.000.000</TableCell>
+                    <TableCell className="text-success font-semibold">+Rp 10.000.000</TableCell>
                     <TableCell>Transfer</TableCell>
                   </TableRow>
                 </TableBody>
@@ -221,7 +221,7 @@ export function FinanceManagement() {
                 </div>
                 <div className="border-t pt-2 flex justify-between items-center">
                   <span className="font-semibold">Net Profit</span>
-                  <span className="text-xl font-bold text-green-600">Rp 2.000.000</span>
+                  <span className="text-xl font-bold text-success">Rp 2.000.000</span>
                 </div>
               </div>
             </CardContent>

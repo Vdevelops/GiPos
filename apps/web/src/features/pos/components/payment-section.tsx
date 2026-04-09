@@ -107,7 +107,7 @@ export function PaymentSection({
               onCheckedChange={onDiscountEnabledChange}
               disabled={isDiscountToggleDisabled}
               aria-label={t('wednesdayDiscount')}
-              className="h-7 w-14 border border-foreground/20 data-[state=checked]:bg-emerald-600 data-[state=unchecked]:bg-slate-300 dark:data-[state=checked]:bg-emerald-500 dark:data-[state=unchecked]:bg-slate-700 md:h-8 md:w-16"
+              className="h-7 w-14 border border-border data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/35 md:h-8 md:w-16"
             />
           </div>
           <Separator />
@@ -122,7 +122,7 @@ export function PaymentSection({
               <span>{formatCurrency(subtotal)}</span>
             </div>
             {discountAmount > 0 && (
-              <div className="flex justify-between text-sm text-green-700 md:text-base">
+              <div className="flex justify-between text-sm text-success md:text-base">
                 <span>{t('discount', { percent: discountPercent })}</span>
                 <span>-{formatCurrency(discountAmount)}</span>
               </div>
@@ -135,7 +135,7 @@ export function PaymentSection({
             {method === 'cash' && (
               <div className="flex justify-between text-sm md:text-base">
                 <span className="text-muted-foreground">{t('change')}</span>
-                <span className={cn('font-medium', change < 0 ? 'text-destructive' : 'text-green-600')}>
+                <span className={cn('font-medium', change < 0 ? 'text-destructive' : 'text-success')}>
                   {change >= 0 ? formatCurrency(change) : t('insufficientAmount')}
                 </span>
               </div>

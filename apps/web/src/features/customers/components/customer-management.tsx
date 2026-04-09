@@ -66,22 +66,22 @@ export function CustomerManagement() {
   const getTierIcon = (tier: string) => {
     switch (tier) {
       case "Gold":
-        return <Crown className="h-4 w-4 text-yellow-500" />
+        return <Crown className="h-4 w-4 text-warning" />
       case "Silver":
-        return <Award className="h-4 w-4 text-gray-400" />
+        return <Award className="h-4 w-4 text-info" />
       default:
-        return <Star className="h-4 w-4 text-orange-500" />
+        return <Star className="h-4 w-4 text-primary" />
     }
   }
 
   const getTierColor = (tier: string) => {
     switch (tier) {
       case "Gold":
-        return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+        return "bg-warning/15 text-warning border-warning/30"
       case "Silver":
-        return "bg-gray-500/10 text-gray-600 border-gray-500/20"
+        return "bg-info/15 text-info border-info/30"
       default:
-        return "bg-orange-500/10 text-orange-600 border-orange-500/20"
+        return "bg-primary/15 text-primary border-primary/30"
     }
   }
 
@@ -255,7 +255,7 @@ export function CustomerManagement() {
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <Star className="h-5 w-5 text-orange-500" />
+                  <Star className="h-5 w-5 text-primary" />
                   <CardTitle>Bronze</CardTitle>
                 </div>
                 <CardDescription>Total belanja &lt; Rp 1.000.000</CardDescription>
@@ -278,7 +278,7 @@ export function CustomerManagement() {
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <Award className="h-5 w-5 text-gray-400" />
+                  <Award className="h-5 w-5 text-info" />
                   <CardTitle>Silver</CardTitle>
                 </div>
                 <CardDescription>Total belanja Rp 1.000.000 - 5.000.000</CardDescription>
@@ -301,7 +301,7 @@ export function CustomerManagement() {
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <Crown className="h-5 w-5 text-yellow-500" />
+                  <Crown className="h-5 w-5 text-warning" />
                   <CardTitle>Gold</CardTitle>
                 </div>
                 <CardDescription>Total belanja &gt; Rp 5.000.000</CardDescription>

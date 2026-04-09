@@ -1,6 +1,7 @@
 'use client';
 
 import { Minus, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/currency';
 import type { Product } from '@/features/products/types';
@@ -18,10 +19,12 @@ interface POSCartProps {
 }
 
 export function POSCart({ items, onUpdateQuantity, onRemove, isLocked = false }: POSCartProps) {
+  const t = useTranslations('pos');
+
   if (items.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-        <p className="text-sm text-muted-foreground md:text-base">Cart is empty</p>
+        <p className="text-sm text-muted-foreground md:text-base">{t('cartEmpty')}</p>
       </div>
     );
   }

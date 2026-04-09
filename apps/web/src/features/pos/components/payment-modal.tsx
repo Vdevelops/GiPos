@@ -141,7 +141,7 @@ export function PaymentModal({
                   <Separator />
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Change</span>
-                    <span className="text-green-600">
+                    <span className="text-success">
                       {formatCurrency(change)}
                     </span>
                   </div>
