@@ -51,6 +51,43 @@ export interface ReportTopProducts {
   data: TopProductRow[];
 }
 
+export type ProductSalesSortBy =
+  | 'quantity_sold'
+  | 'revenue'
+  | 'product_name'
+  | 'product_sku'
+  | 'product_status';
+
+export interface ProductSalesRow {
+  product_id: string;
+  product_name: string;
+  product_sku: string;
+  product_status: string;
+  category_id?: string;
+  category_name?: string;
+  quantity_sold: number;
+  revenue: number;
+}
+
+export interface ReportProductSales {
+  start_date: string;
+  end_date: string;
+  sort_by: ProductSalesSortBy;
+  sort_order: 'asc' | 'desc';
+  page: number;
+  per_page: number;
+  total: number;
+  data: ProductSalesRow[];
+}
+
+export interface ReportProductSalesQuery extends ReportFilterQuery {
+  search?: string;
+  sort_by?: ProductSalesSortBy;
+  sort_order?: 'asc' | 'desc';
+  page?: number;
+  per_page?: number;
+}
+
 export interface PaymentMethodRow {
   method: string;
   total_transactions: number;
@@ -150,6 +187,7 @@ export interface ReportTransactionsQuery extends ReportFilterQuery {
 export type ReportSummaryResponse = ApiResponse<ReportSummary>;
 export type ReportSalesResponse = ApiResponse<ReportSalesSeries>;
 export type ReportTopProductsResponse = ApiResponse<ReportTopProducts>;
+export type ReportProductSalesResponse = ApiResponse<ReportProductSales>;
 export type ReportPaymentMethodsResponse = ApiResponse<ReportPaymentMethods>;
 export type ReportConsistencyCheckResponse = ApiResponse<ReportConsistencyCheck>;
 export type ReportTransactionsResponse = ApiResponse<ReportTransaction[]>;

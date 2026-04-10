@@ -49,6 +49,18 @@ type ReportTopProductRow struct {
 	Revenue      int64
 }
 
+// ReportProductSalesRow is an internal projection for full product sales report.
+type ReportProductSalesRow struct {
+	ProductID     uint
+	ProductName   string
+	ProductSKU    string
+	ProductStatus string
+	CategoryID    *uint
+	CategoryName  string
+	QuantitySold  int64
+	Revenue       int64
+}
+
 // ReportPaymentMethodRow is an internal projection for payment distribution.
 type ReportPaymentMethodRow struct {
 	Method            string
@@ -442,6 +454,84 @@ func (r *ReportRepository) GetTopProducts(filters ReportFilters, limit int) ([]R
 	}
 
 	return rows, nil
+}
+
+func (r *ReportRepository) GetProductSales(filters ReportFilters, search, sortBy, sortOrder string, page, perPage int) ([]ReportProductSalesRow, int64, error) {
+	salesAgg := r.db.Table("sale_items si").
+		Select("si.product_id AS product_id, COALESCE(SUM(si.quantity), 0) AS quantity_sold, COALESCE(SUM(si.total), 0) AS revenue").
+		Joins("JOIN sales s ON s.id = si.sale_id AND s.tenant_id = si.tenant_id AND s.deleted_at IS NULL").
+		Where("si.tenant_id = ? AND si.deleted_at IS NULL", filters.TenantID).
+		Where("s.status = ? AND s.payment_status = ?", salesModels.SaleStatusCompleted, salesModels.PaymentStatusCompleted).
+		Where("s.created_at >= ? AND s.created_at <= ?", filters.StartDate, filters.EndDate)
+
+	if filters.OutletID != nil {
+		salesAgg = salesAgg.Where("s.outlet_id = ?", *filters.OutletID)
+	}
+
+	salesAgg = salesAgg.Group("si.product_id")
+
+	query := r.db.Table("products p").
+		Joins("LEFT JOIN categories c ON c.id = p.category_id AND c.tenant_id = p.tenant_id AND c.deleted_at IS NULL").
+		Joins("LEFT JOIN (?) AS sales_agg ON sales_agg.product_id = p.id", salesAgg).
+		Where("p.tenant_id = ? AND p.deleted_at IS NULL", filters.TenantID)
+
+	if filters.ProductID != nil {
+		query = query.Where("p.id = ?", *filters.ProductID)
+	}
+	if filters.CategoryID != nil {
+		query = query.Where("p.category_id = ?", *filters.CategoryID)
+	}
+
+	searchTerm := strings.TrimSpace(search)
+	if searchTerm != "" {
+		likeTerm := "%" + strings.ToLower(searchTerm) + "%"
+		query = query.Where("(LOWER(p.name) LIKE ? OR LOWER(COALESCE(p.sku, '')) LIKE ?)", likeTerm, likeTerm)
+	}
+
+	var total int64
+	if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	sortColumn := "COALESCE(sales_agg.quantity_sold, 0)"
+	switch sortBy {
+	case "revenue":
+		sortColumn = "COALESCE(sales_agg.revenue, 0)"
+	case "product_name":
+		sortColumn = "p.name"
+	case "product_sku":
+		sortColumn = "COALESCE(p.sku, '')"
+	case "product_status":
+		sortColumn = "COALESCE(p.status, '')"
+	}
+
+	sortDirection := "DESC"
+	if sortOrder == "asc" {
+		sortDirection = "ASC"
+	}
+	offset := (page - 1) * perPage
+	orderClause := fmt.Sprintf("%s %s, p.name ASC", sortColumn, sortDirection)
+
+	var rows []ReportProductSalesRow
+	if err := query.Session(&gorm.Session{}).
+		Select(strings.Join([]string{
+			"p.id AS product_id",
+			"p.name AS product_name",
+			"COALESCE(p.sku, '') AS product_sku",
+			"COALESCE(p.status, '') AS product_status",
+			"p.category_id",
+			"COALESCE(c.name, '') AS category_name",
+			"COALESCE(sales_agg.quantity_sold, 0) AS quantity_sold",
+			"COALESCE(sales_agg.revenue, 0) AS revenue",
+		}, ", ")).
+		Order(orderClause).
+		Offset(offset).
+		Limit(perPage).
+		Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return rows, total, nil
 }
 
 func (r *ReportRepository) GetPaymentMethodsFromAggregates(filters ReportFilters) ([]ReportPaymentMethodRow, error) {

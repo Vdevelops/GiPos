@@ -176,6 +176,82 @@ func (uc *ReportUsecase) GetTopProducts(tenantID string, query dto.ReportFilterQ
 	return resp, nil
 }
 
+func (uc *ReportUsecase) GetProductSales(tenantID string, query dto.ReportFilterQuery, search, sortBy, sortOrder string, page, perPage int) (*dto.ProductSalesReportResponse, int64, error) {
+	filters, err := uc.parseFilters(tenantID, query)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	normalizedSortBy := strings.TrimSpace(strings.ToLower(sortBy))
+	switch normalizedSortBy {
+	case "", "quantity_sold":
+		normalizedSortBy = "quantity_sold"
+	case "revenue", "product_name", "product_sku", "product_status":
+		// Allowed sort fields.
+	default:
+		return nil, 0, errors.New("INVALID_QUERY_PARAM")
+	}
+
+	normalizedSortOrder := strings.TrimSpace(strings.ToLower(sortOrder))
+	switch normalizedSortOrder {
+	case "", "desc":
+		normalizedSortOrder = "desc"
+	case "asc":
+		// Allowed sort order.
+	default:
+		return nil, 0, errors.New("INVALID_QUERY_PARAM")
+	}
+
+	if page <= 0 {
+		page = 1
+	}
+	if perPage <= 0 {
+		perPage = 20
+	}
+	if perPage > 100 {
+		perPage = 100
+	}
+
+	rows, total, err := uc.reportRepo.GetProductSales(filters, search, normalizedSortBy, normalizedSortOrder, page, perPage)
+	if err != nil {
+		return nil, 0, errors.New("INTERNAL_SERVER_ERROR")
+	}
+
+	data := make([]dto.ProductSalesRow, 0, len(rows))
+	for _, row := range rows {
+		productID := strconv.FormatUint(uint64(row.ProductID), 10)
+		var categoryID *string
+		if row.CategoryID != nil {
+			value := strconv.FormatUint(uint64(*row.CategoryID), 10)
+			categoryID = &value
+		}
+
+		data = append(data, dto.ProductSalesRow{
+			ProductID:     productID,
+			ProductName:   row.ProductName,
+			ProductSKU:    row.ProductSKU,
+			ProductStatus: row.ProductStatus,
+			CategoryID:    categoryID,
+			CategoryName:  row.CategoryName,
+			QuantitySold:  row.QuantitySold,
+			Revenue:       row.Revenue,
+		})
+	}
+
+	resp := &dto.ProductSalesReportResponse{
+		StartDate: formatDate(filters.StartDate),
+		EndDate:   formatDate(filters.EndDate),
+		SortBy:    normalizedSortBy,
+		SortOrder: normalizedSortOrder,
+		Page:      page,
+		PerPage:   perPage,
+		Total:     total,
+		Data:      data,
+	}
+
+	return resp, total, nil
+}
+
 func (uc *ReportUsecase) GetPaymentMethods(tenantID string, query dto.ReportFilterQuery) (*dto.PaymentMethodsResponse, error) {
 	filters, err := uc.parseFilters(tenantID, query)
 	if err != nil {

@@ -92,6 +92,34 @@ func (h *ReportHandler) GetTopProducts(c *gin.Context) {
 	response.Success(c, result, meta)
 }
 
+// GetProductSales handles GET /api/v1/reports/product-sales.
+func (h *ReportHandler) GetProductSales(c *gin.Context) {
+	tenantID, exists := c.Get("tenant_id")
+	if !exists {
+		errors.Unauthorized(c, "Tenant ID is required")
+		return
+	}
+
+	query := parseFilterQuery(c)
+	page, perPage := response.ParsePaginationParams(c)
+	search := c.Query("search")
+	sortBy := c.Query("sort_by")
+	sortOrder := c.Query("sort_order")
+
+	result, total, err := h.reportUsecase.GetProductSales(tenantID.(string), query, search, sortBy, sortOrder, page, perPage)
+	if err != nil {
+		errors.Error(c, err.Error(), nil, nil)
+		return
+	}
+
+	meta := response.GetMetaFromContext(c)
+	meta.TenantID = tenantID.(string)
+	meta.Filters = buildMetaFilters(c)
+	meta.Pagination = response.NewPaginationMeta(page, perPage, int(total))
+	meta.Sort = &response.SortMeta{Field: result.SortBy, Order: result.SortOrder}
+	response.Success(c, result, meta)
+}
+
 // GetPaymentMethods handles GET /api/v1/reports/payment-methods.
 func (h *ReportHandler) GetPaymentMethods(c *gin.Context) {
 	tenantID, exists := c.Get("tenant_id")
@@ -170,7 +198,7 @@ func parseFilterQuery(c *gin.Context) reportDTO.ReportFilterQuery {
 
 func buildMetaFilters(c *gin.Context) map[string]interface{} {
 	filters := map[string]interface{}{}
-	for _, key := range []string{"start_date", "end_date", "outlet_id", "product_id", "category_id", "range", "limit"} {
+	for _, key := range []string{"start_date", "end_date", "outlet_id", "product_id", "category_id", "range", "limit", "search", "sort_by", "sort_order", "page", "per_page"} {
 		if value := c.Query(key); value != "" {
 			filters[key] = value
 		}

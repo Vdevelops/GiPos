@@ -55,6 +55,30 @@ type TopProductsResponse struct {
 	Data      []TopProductRow `json:"data"`
 }
 
+// ProductSalesRow represents product sales metrics in selected period.
+type ProductSalesRow struct {
+	ProductID    string  `json:"product_id"`
+	ProductName  string  `json:"product_name"`
+	ProductSKU   string  `json:"product_sku"`
+	ProductStatus string `json:"product_status"`
+	CategoryID   *string `json:"category_id,omitempty"`
+	CategoryName string  `json:"category_name,omitempty"`
+	QuantitySold int64   `json:"quantity_sold"`
+	Revenue      int64   `json:"revenue"`
+}
+
+// ProductSalesReportResponse represents full product sales list response.
+type ProductSalesReportResponse struct {
+	StartDate string            `json:"start_date"`
+	EndDate   string            `json:"end_date"`
+	SortBy    string            `json:"sort_by"`
+	SortOrder string            `json:"sort_order"`
+	Page      int               `json:"page"`
+	PerPage   int               `json:"per_page"`
+	Total     int64             `json:"total"`
+	Data      []ProductSalesRow `json:"data"`
+}
+
 // PaymentMethodRow represents payment distribution row.
 type PaymentMethodRow struct {
 	Method            string  `json:"method"`

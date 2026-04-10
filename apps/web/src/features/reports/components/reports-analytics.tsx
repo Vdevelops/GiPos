@@ -13,6 +13,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -40,6 +41,7 @@ import { formatCurrency } from "@/lib/currency";
 import {
   useReportConsistencyCheck,
   useReportPaymentMethods,
+  useReportProductSales,
   useReportSales,
   useReportSummary,
   useReportTransaction,
@@ -47,13 +49,16 @@ import {
   useReportTopProducts,
 } from "@/features/reports/hooks/use-reports";
 import type {
+  ProductSalesSortBy,
   ReportFilterQuery,
+  ReportProductSalesQuery,
   ReportRange,
   ReportTransactionsQuery,
 } from "@/features/reports/types/report";
 
 type DatePreset = "today" | "monthly" | "yearly" | "date_range";
 const TRANSACTION_PAGE_SIZE = 20;
+const PRODUCT_SALES_PAGE_SIZE = 20;
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function formatDateOnly(date: Date): string {
@@ -210,6 +215,10 @@ export function ReportsAnalytics() {
   const [customStartDate, setCustomStartDate] = useState<string>(monthStartDate);
   const [customEndDate, setCustomEndDate] = useState<string>(todayDate);
   const [transactionPage, setTransactionPage] = useState<number>(1);
+  const [productSalesPage, setProductSalesPage] = useState<number>(1);
+  const [productSalesSearch, setProductSalesSearch] = useState<string>("");
+  const [productSalesSortBy, setProductSalesSortBy] = useState<ProductSalesSortBy>("quantity_sold");
+  const [productSalesSortOrder, setProductSalesSortOrder] = useState<"asc" | "desc">("desc");
   const [detailOpen, setDetailOpen] = useState<boolean>(false);
   const [selectedTransactionID, setSelectedTransactionID] = useState<string | null>(null);
 
@@ -255,13 +264,38 @@ export function ReportsAnalytics() {
     [dateRange.end, dateRange.start, transactionPage]
   );
 
+  const productSalesQueryParams = useMemo<ReportProductSalesQuery>(
+    () => ({
+      start_date: dateRange.start,
+      end_date: dateRange.end,
+      page: productSalesPage,
+      per_page: PRODUCT_SALES_PAGE_SIZE,
+      search: productSalesSearch || undefined,
+      sort_by: productSalesSortBy,
+      sort_order: productSalesSortOrder,
+    }),
+    [
+      dateRange.end,
+      dateRange.start,
+      productSalesPage,
+      productSalesSearch,
+      productSalesSortBy,
+      productSalesSortOrder,
+    ]
+  );
+
   useEffect(() => {
     setTransactionPage(1);
   }, [dateRange.end, dateRange.start]);
 
+  useEffect(() => {
+    setProductSalesPage(1);
+  }, [dateRange.end, dateRange.start, productSalesSearch, productSalesSortBy, productSalesSortOrder]);
+
   const summaryQuery = useReportSummary(filterQuery);
   const salesQuery = useReportSales(salesRange, filterQuery);
   const topProductsQuery = useReportTopProducts(10, filterQuery);
+  const productSalesQuery = useReportProductSales(productSalesQueryParams);
   const paymentMethodsQuery = useReportPaymentMethods(filterQuery);
   const consistencyQuery = useReportConsistencyCheck(5, filterQuery);
   const transactionsQuery = useReportTransactions(transactionQuery);
@@ -270,6 +304,15 @@ export function ReportsAnalytics() {
   const summary = summaryQuery.data?.success ? summaryQuery.data.data : undefined;
   const salesData = salesQuery.data?.success ? salesQuery.data.data?.data ?? [] : [];
   const topProducts = topProductsQuery.data?.success ? topProductsQuery.data.data?.data ?? [] : [];
+  const productSalesReport = productSalesQuery.data?.success ? productSalesQuery.data.data : undefined;
+  const productSales = productSalesReport?.data ?? [];
+  const productSalesPagination = productSalesQuery.data?.meta?.pagination;
+  const productSalesTotal = productSalesPagination?.total ?? productSalesReport?.total ?? productSales.length;
+  const productSalesPerPage = productSalesPagination?.per_page ?? productSalesReport?.per_page ?? PRODUCT_SALES_PAGE_SIZE;
+  const productSalesTotalPages = productSalesPagination?.total_pages ?? Math.max(1, Math.ceil(productSalesTotal / Math.max(productSalesPerPage, 1)));
+  const productSalesCurrentPage = productSalesPagination?.page ?? productSalesReport?.page ?? productSalesPage;
+  const productSalesHasPrev = productSalesPagination?.has_prev ?? productSalesCurrentPage > 1;
+  const productSalesHasNext = productSalesPagination?.has_next ?? productSalesCurrentPage < productSalesTotalPages;
   const paymentMethods = paymentMethodsQuery.data?.success
     ? paymentMethodsQuery.data.data?.data ?? []
     : [];
@@ -371,6 +414,7 @@ export function ReportsAnalytics() {
     (summaryQuery.data && !summaryQuery.data.success) ||
     (salesQuery.data && !salesQuery.data.success) ||
     (topProductsQuery.data && !topProductsQuery.data.success) ||
+    (productSalesQuery.data && !productSalesQuery.data.success) ||
     (paymentMethodsQuery.data && !paymentMethodsQuery.data.success) ||
     (consistencyQuery.data && !consistencyQuery.data.success) ||
     (transactionsQuery.data && !transactionsQuery.data.success);
@@ -548,6 +592,7 @@ export function ReportsAnalytics() {
         <TabsList>
           <TabsTrigger value="sales">Sales Trend</TabsTrigger>
           <TabsTrigger value="products">Top Products</TabsTrigger>
+          <TabsTrigger value="product-sales">Product Sales</TabsTrigger>
           <TabsTrigger value="payments">Payment Methods</TabsTrigger>
         </TabsList>
 
@@ -556,7 +601,7 @@ export function ReportsAnalytics() {
             <CardHeader>
               <CardTitle>Sales Over Time</CardTitle>
               <CardDescription>
-                {salesQuery.isFetching ? "Refreshing..." : "Updated automatically"} | Range: {salesRange}
+                {salesQuery.isFetching ? "Refreshing..." : "Latest data on page access"} | Range: {salesRange}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -798,7 +843,7 @@ export function ReportsAnalytics() {
           <Card>
             <CardHeader>
               <CardTitle>Top Selling Products</CardTitle>
-              <CardDescription>Ranked by quantity sold and revenue</CardDescription>
+              <CardDescription>Top ranking by quantity sold and revenue</CardDescription>
             </CardHeader>
             <CardContent>
               {topProducts.length === 0 ? (
@@ -826,6 +871,118 @@ export function ReportsAnalytics() {
                     ))}
                   </TableBody>
                 </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="product-sales">
+          <Card>
+            <CardHeader>
+              <CardTitle>Product Sales Report</CardTitle>
+              <CardDescription>
+                Full product list including products with zero sales in selected period.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4 grid gap-2 md:grid-cols-[1fr_220px_180px]">
+                <Input
+                  value={productSalesSearch}
+                  onChange={(event) => setProductSalesSearch(event.target.value)}
+                  placeholder="Search by product name or SKU"
+                />
+
+                <Select
+                  value={productSalesSortBy}
+                  onValueChange={(value) => setProductSalesSortBy(value as ProductSalesSortBy)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="quantity_sold">Sort: Quantity Sold</SelectItem>
+                    <SelectItem value="revenue">Sort: Revenue</SelectItem>
+                    <SelectItem value="product_name">Sort: Product Name</SelectItem>
+                    <SelectItem value="product_sku">Sort: SKU</SelectItem>
+                    <SelectItem value="product_status">Sort: Status</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={productSalesSortOrder}
+                  onValueChange={(value) => setProductSalesSortOrder(value as "asc" | "desc")}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Order" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="desc">Order: Descending</SelectItem>
+                    <SelectItem value="asc">Order: Ascending</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {productSalesQuery.isLoading ? (
+                <p className="text-sm text-muted-foreground">Loading product sales report...</p>
+              ) : productSales.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No products found for selected filter.</p>
+              ) : (
+                <div className="space-y-4">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Qty Sold</TableHead>
+                        <TableHead>Revenue</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {productSales.map((product) => (
+                        <TableRow key={product.product_id}>
+                          <TableCell className="font-medium">{product.product_name}</TableCell>
+                          <TableCell>{product.product_sku || "-"}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="uppercase">
+                              {product.product_status || "unknown"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{product.category_name || "-"}</TableCell>
+                          <TableCell>{product.quantity_sold.toLocaleString("en-US")}</TableCell>
+                          <TableCell>{formatCurrency(product.revenue)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="text-muted-foreground">
+                      Page {productSalesCurrentPage} of {productSalesTotalPages}
+                      {" | "}
+                      Total {productSalesTotal.toLocaleString("en-US")} products
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setProductSalesPage((current) => Math.max(1, current - 1))}
+                        disabled={!productSalesHasPrev}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setProductSalesPage((current) => current + 1)}
+                        disabled={!productSalesHasNext}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>

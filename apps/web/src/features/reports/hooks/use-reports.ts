@@ -2,7 +2,12 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { ReportService } from '../services/report.service';
-import type { ReportFilterQuery, ReportRange, ReportTransactionsQuery } from '../types/report';
+import type {
+  ReportFilterQuery,
+  ReportProductSalesQuery,
+  ReportRange,
+  ReportTransactionsQuery,
+} from '../types/report';
 
 const REPORT_QUERY_BEHAVIOR = {
   refetchOnMount: 'always' as const,
@@ -39,6 +44,14 @@ export function useReportPaymentMethods(query?: ReportFilterQuery) {
   return useQuery({
     queryKey: ['reports', 'payment-methods', query],
     queryFn: () => ReportService.getPaymentMethods(query),
+    ...REPORT_QUERY_BEHAVIOR,
+  });
+}
+
+export function useReportProductSales(query?: ReportProductSalesQuery) {
+  return useQuery({
+    queryKey: ['reports', 'product-sales', query],
+    queryFn: () => ReportService.getProductSales(query),
     ...REPORT_QUERY_BEHAVIOR,
   });
 }

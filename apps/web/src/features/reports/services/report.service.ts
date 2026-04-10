@@ -5,14 +5,17 @@ import type {
   ReportSummary,
   ReportSalesSeries,
   ReportTopProducts,
+  ReportProductSales,
   ReportPaymentMethods,
   ReportConsistencyCheck,
   ReportTransaction,
   ReportSummaryResponse,
   ReportSalesResponse,
   ReportTopProductsResponse,
+  ReportProductSalesResponse,
   ReportPaymentMethodsResponse,
   ReportConsistencyCheckResponse,
+  ReportProductSalesQuery,
   ReportTransactionsQuery,
   ReportTransactionsResponse,
   ReportTransactionResponse,
@@ -80,6 +83,18 @@ export class ReportService {
         requireAuth: true,
       }
     ) as Promise<ReportPaymentMethodsResponse>;
+  }
+
+  static async getProductSales(
+    query?: ReportProductSalesQuery
+  ): Promise<ReportProductSalesResponse> {
+    return apiRequest<ReportProductSales>(
+      `reports/product-sales${toQueryString(query)}`,
+      {
+        method: 'GET',
+        requireAuth: true,
+      }
+    ) as Promise<ReportProductSalesResponse>;
   }
 
   static async getConsistencyCheck(
