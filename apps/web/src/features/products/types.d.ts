@@ -85,6 +85,7 @@ export interface UpdateProductRequest {
   cost?: number | null; // in sen
   category_id?: string | null;
   taxable?: boolean;
+  track_stock?: boolean;
   status?: 'active' | 'inactive' | 'archived';
 }
 

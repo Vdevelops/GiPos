@@ -37,6 +37,7 @@ export class ProductImageService {
       {
         method: 'POST',
         body: JSON.stringify(data),
+        requireAuth: true,
       }
     );
 
@@ -59,6 +60,7 @@ export class ProductImageService {
       {
         method: 'POST',
         body: JSON.stringify(data),
+        requireAuth: true,
       }
     );
 
@@ -77,6 +79,7 @@ export class ProductImageService {
       `/products/${productId}/images`,
       {
         method: 'GET',
+        requireAuth: true,
       }
     );
 
@@ -93,6 +96,7 @@ export class ProductImageService {
   static async delete(imageId: string): Promise<void> {
     const response = await apiRequest<void>(`/products/images/${imageId}`, {
       method: 'DELETE',
+      requireAuth: true,
     });
 
     if (!response.success) {

@@ -74,6 +74,9 @@ func (h *PaymentHandler) GetPayment(c *gin.Context) {
 // GetPaymentBySaleID handles GET /api/v1/sales/:sale_id/payment
 func (h *PaymentHandler) GetPaymentBySaleID(c *gin.Context) {
 	saleID := c.Param("sale_id")
+	if saleID == "" {
+		saleID = c.Param("id")
+	}
 
 	tenantID, exists := c.Get("tenant_id")
 	if !exists {

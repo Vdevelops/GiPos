@@ -46,6 +46,9 @@ export function useCreateSale() {
     onSuccess: (response) => {
       if (response.success) {
         queryClient.invalidateQueries({ queryKey: ['sales'] });
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+        queryClient.invalidateQueries({ queryKey: ['product-stocks'] });
+        queryClient.invalidateQueries({ queryKey: ['product-total-stock'] });
         toast.success('Sale created successfully');
       } else {
         toast.error(response.error?.message || 'Failed to create sale');
@@ -70,6 +73,9 @@ export function useVoidSale() {
       if (response.success) {
         queryClient.invalidateQueries({ queryKey: ['sales'] });
         queryClient.invalidateQueries({ queryKey: ['sale', variables.id] });
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+        queryClient.invalidateQueries({ queryKey: ['product-stocks'] });
+        queryClient.invalidateQueries({ queryKey: ['product-total-stock'] });
         toast.success('Sale voided successfully');
       } else {
         toast.error(response.error?.message || 'Failed to void sale');

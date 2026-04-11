@@ -6,6 +6,7 @@ import type {
   UpdateSaleRequest,
   SaleListQuery,
 } from '../types';
+import type { ApiResponse } from '@/features/auth/types';
 import { apiRequest } from '@/lib/api';
 
 /**
@@ -80,11 +81,11 @@ export class SaleService {
   /**
    * Void sale (before payment)
    */
-  static async void(id: string, notes?: string): Promise<SaleResponse> {
-    return apiRequest<Sale>(`sales/${id}/void`, {
+  static async void(id: string, notes?: string): Promise<ApiResponse<null>> {
+    return apiRequest<null>(`sales/${id}/void`, {
       method: 'POST',
       body: JSON.stringify({ notes: notes || null }),
       requireAuth: true,
-    }) as Promise<SaleResponse>;
+    });
   }
 }

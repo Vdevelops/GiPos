@@ -27,9 +27,20 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useCreateProduct, useUpdateProduct } from '../hooks/use-products';
 import { useCategories } from '../hooks/use-categories';
+import {
+  useCreateProductStock,
+  useProductStocks,
+  useUpdateProductStock,
+} from '../hooks/use-inventory';
+import { useWarehouses } from '../hooks/use-warehouses';
 import { useUploadImage } from '../hooks/use-upload';
 import { useBulkCreateProductImages } from '../hooks/use-product-images';
+import { useProductImages } from '../hooks/use-product-images';
+import { ProductImageService } from '../services/product-image.service';
+import { UploadService } from '../services/upload.service';
 import { rupiahToSen, senToRupiah } from '@/lib/currency';
+import { resolveAssetUrl } from '@/lib/asset-url';
+import { toast } from '@/lib/toast';
 import type { Product } from '../types';
 
 // Form schema
@@ -40,6 +51,11 @@ const productSchema = z.object({
   description: z.string().optional(),
   price: z.number().min(1, 'Price must be greater than 0'),
   cost: z.number().min(0).optional(),
+  stock_quantity: z
+    .number()
+    .int('Stock quantity must be a whole number')
+    .min(0, 'Stock quantity must be 0 or greater')
+    .optional(),
   category_id: z.string().optional().nullable(),
   taxable: z.boolean(),
   track_stock: z.boolean(),
@@ -62,8 +78,25 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
   const { data: categoriesData } = useCategories({ per_page: 100 });
   const categories = categoriesData?.data ?? [];
 
+  const {
+    data: stocksData,
+    isLoading: isLoadingStockRows,
+    isFetching: isFetchingStockRows,
+  } = useProductStocks(product?.id ?? null);
+  const { data: existingImagesData } = useProductImages(product?.id ?? null);
+  const productStocks = stocksData?.data ?? [];
+  const existingImages = existingImagesData?.data ?? product?.images ?? [];
+  const primaryStock = productStocks[0];
+
+  const { data: warehousesData } = useWarehouses({
+    per_page: 100,
+  });
+  const warehouses = warehousesData?.data ?? [];
+
   const createMutation = useCreateProduct();
   const updateMutation = useUpdateProduct();
+  const createStockMutation = useCreateProductStock();
+  const updateStockMutation = useUpdateProductStock();
   const uploadImageMutation = useUploadImage();
   const bulkCreateImagesMutation = useBulkCreateProductImages();
 
@@ -85,6 +118,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
       description: '',
       price: 0,
       cost: 0,
+      stock_quantity: 0,
       category_id: null,
       taxable: false,
       track_stock: true,
@@ -98,6 +132,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
   // Reset form when product changes
   useEffect(() => {
     if (product && open) {
+      setUploadedImages([]);
       reset({
         name: product?.name ?? '',
         sku: product?.sku ?? '',
@@ -105,6 +140,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
         description: product?.description ?? '',
         price: senToRupiah(product?.price ?? 0),
         cost: product?.cost ? senToRupiah(product.cost) : 0,
+        stock_quantity: product?.stocks?.[0]?.quantity ?? 0,
         category_id: product?.category_id ?? null,
         taxable: product?.taxable ?? false,
         track_stock: product?.track_stock ?? true,
@@ -122,6 +158,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
         description: '',
         price: 0,
         cost: 0,
+        stock_quantity: 0,
         category_id: null,
         taxable: false,
         track_stock: true,
@@ -130,6 +167,12 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
       setUploadedImages([]);
     }
   }, [product, open, reset]);
+
+  useEffect(() => {
+    if (isEdit && open && typeof primaryStock?.quantity === 'number') {
+      setValue('stock_quantity', primaryStock.quantity, { shouldDirty: false });
+    }
+  }, [isEdit, open, primaryStock?.quantity, setValue]);
 
   const handleImageUpload = async (file: File) => {
     try {
@@ -164,11 +207,73 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
 
       let productId: string;
       if (isEdit && product?.id) {
-        await updateMutation.mutateAsync({
+        const updateProductResponse = await updateMutation.mutateAsync({
           id: product.id,
           data: payload,
         });
+        if (!updateProductResponse.success) {
+          throw new Error(
+            updateProductResponse.error?.message || 'Failed to update product'
+          );
+        }
         productId = product.id;
+
+        if (data.track_stock && typeof data.stock_quantity === 'number') {
+          if (isLoadingStockRows || isFetchingStockRows) {
+            toast.error(t('stockDataStillLoading'));
+            return;
+          }
+
+          const targetStockQty = data.stock_quantity;
+
+          if (primaryStock?.id) {
+            const reservedStock = primaryStock.reserved ?? 0;
+            if (targetStockQty < reservedStock) {
+              toast.error(t('stockQuantityReservedConflict', { reserved: reservedStock }));
+              return;
+            }
+
+            if (primaryStock.quantity !== targetStockQty) {
+              const updateStockResponse = await updateStockMutation.mutateAsync({
+                id: primaryStock.id,
+                data: {
+                  quantity: targetStockQty,
+                },
+              });
+              if (!updateStockResponse.success) {
+                throw new Error(
+                  updateStockResponse.error?.message || 'Failed to update stock'
+                );
+              }
+            }
+          } else if (targetStockQty > 0) {
+            let defaultWarehouseID =
+              warehouses.find(
+                (warehouse) => warehouse.is_default && warehouse.status === 'active'
+              )?.id ??
+              warehouses.find((warehouse) => warehouse.status === 'active')?.id ??
+              warehouses[0]?.id;
+            if (!defaultWarehouseID) {
+              // Let backend auto-provision a default warehouse when none exists.
+              defaultWarehouseID = '0';
+            }
+
+            const createStockResponse = await createStockMutation.mutateAsync({
+              productId,
+              data: {
+                warehouse_id: defaultWarehouseID,
+                quantity: targetStockQty,
+                reserved: 0,
+                min_stock: 0,
+              },
+            });
+            if (!createStockResponse.success) {
+              throw new Error(
+                createStockResponse.error?.message || 'Failed to create stock'
+              );
+            }
+          }
+        }
       } else {
         const response = await createMutation.mutateAsync(payload);
         // Response is ApiResponse<Product>, extract the product
@@ -179,9 +284,25 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
         }
       }
 
-      // Upload images if any (only new uploads, not existing images)
+      // Replace existing images when editing and new images are uploaded.
       const newImages = uploadedImages.filter((img) => img.file.size > 0);
       if (newImages.length > 0 && productId) {
+        if (isEdit) {
+          for (const existingImage of existingImages) {
+            if (existingImage?.id) {
+              await ProductImageService.delete(existingImage.id);
+            }
+
+            if (existingImage?.url) {
+              try {
+                await UploadService.deleteImage(existingImage.url);
+              } catch (deleteError) {
+                console.warn('Failed to delete old image file:', deleteError);
+              }
+            }
+          }
+        }
+
         await bulkCreateImagesMutation.mutateAsync({
           productId,
           data: {
@@ -198,7 +319,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
       setUploadedImages([]);
       onOpenChange(false);
     } catch (error) {
-      // Error is handled by mutation hooks
+      toast.error(error instanceof Error ? error.message : 'Failed to save product');
       console.error('Form submission error:', error);
     }
   };
@@ -206,12 +327,15 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
   const isLoading =
     createMutation.isPending ||
     updateMutation.isPending ||
+    createStockMutation.isPending ||
+    updateStockMutation.isPending ||
+    (isEdit && trackStock && (isLoadingStockRows || isFetchingStockRows)) ||
     uploadImageMutation.isPending ||
     bulkCreateImagesMutation.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             {isEdit ? t('editProduct') : t('addProduct')}
@@ -226,7 +350,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Basic Information */}
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="name">
                   {t('productName')} <span className="text-destructive">*</span>
@@ -284,7 +408,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                   <div key={`${img.url}-${index}`} className="relative">
                     <div className="relative h-24 w-24 overflow-hidden rounded-lg border">
                       <img
-                        src={img.url}
+                        src={resolveAssetUrl(img.url) ?? img.url}
                         alt={`Upload ${index + 1}`}
                         className="h-full w-full object-cover"
                       />
@@ -326,7 +450,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="price">
                   {t('price')} <span className="text-destructive">*</span>
@@ -354,6 +478,37 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                 />
               </div>
             </div>
+
+            {isEdit && (
+              <div className="space-y-2">
+                <Label htmlFor="stock_quantity">{t('stockQuantity')}</Label>
+                <Input
+                  id="stock_quantity"
+                  type="number"
+                  {...register('stock_quantity', {
+                    valueAsNumber: true,
+                    setValueAs: (value) => (value === '' ? 0 : Number(value)),
+                  })}
+                  placeholder="0"
+                  disabled={!trackStock}
+                />
+                {errors.stock_quantity && (
+                  <p className="text-sm text-destructive">
+                    {errors.stock_quantity.message}
+                  </p>
+                )}
+                {!!primaryStock?.id && (
+                  <p className="text-xs text-muted-foreground">
+                    {t('reserved')}: {primaryStock.reserved ?? 0}
+                  </p>
+                )}
+                {!primaryStock?.id && trackStock && !isLoadingStockRows && !isFetchingStockRows && (
+                  <p className="text-xs text-muted-foreground">
+                    {t('stockWillUseDefaultWarehouse')}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="category_id">{t('category')}</Label>
@@ -423,7 +578,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          <div className="flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="outline"

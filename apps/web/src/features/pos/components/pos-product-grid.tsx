@@ -1,35 +1,35 @@
 'use client';
 
 import { Package } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/currency';
+import { resolveAssetUrl } from '@/lib/asset-url';
 import type { Product } from '@/features/products/types';
 
 interface POSProductGridProps {
   readonly products: Product[] | undefined;
   readonly isLoading?: boolean;
   readonly onProductClick: (product: Product) => void;
+  readonly isCheckoutLocked?: boolean;
 }
 
 export function POSProductGrid({
   products,
   isLoading = false,
   onProductClick,
+  isCheckoutLocked = false,
 }: POSProductGridProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 2xl:grid-cols-5">
         {Array.from({ length: 10 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-4">
-              <Skeleton className="aspect-square w-full mb-3" />
-              <Skeleton className="h-4 w-full mb-2" />
-              <Skeleton className="h-6 w-2/3 mb-2" />
-              <Skeleton className="h-5 w-1/2" />
-            </CardContent>
-          </Card>
+          <div key={i} className="overflow-hidden rounded-xl border bg-card text-card-foreground">
+            <Skeleton className="aspect-square w-full rounded-none" />
+            <div className="space-y-1 px-1.5 py-1.5 sm:px-2 sm:py-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-5 w-2/3" />
+            </div>
+          </div>
         ))}
       </div>
     );
@@ -50,50 +50,44 @@ export function POSProductGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 2xl:grid-cols-5">
       {productList.map((product) => {
         const price = product?.price ?? 0;
-        const stock = product?.stocks?.[0]?.quantity ?? 0;
-        const isOutOfStock = stock <= 0;
+        const isDisabled = isCheckoutLocked;
+        const imageUrl = resolveAssetUrl(product?.images?.[0]?.url);
 
         return (
-          <Card
+          <div
             key={product?.id ?? 'unknown'}
-            className={`cursor-pointer hover:shadow-md transition-shadow ${
-              isOutOfStock ? 'opacity-50' : ''
+            className={`min-w-0 cursor-pointer overflow-hidden rounded-xl border bg-card text-card-foreground transition-shadow hover:shadow-md ${
+              isDisabled ? 'opacity-50' : ''
             }`}
             onClick={() => {
-              if (!isOutOfStock) {
+              if (!isDisabled) {
                 onProductClick(product);
               }
             }}
           >
-            <CardContent className="p-4">
-              <div className="aspect-square bg-muted rounded-lg mb-3 flex items-center justify-center">
-                {product?.images?.[0]?.url ? (
-                  <img
-                    src={product.images[0].url}
-                    alt={product.images[0]?.alt ?? product?.name ?? 'Product'}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                ) : (
-                  <Package className="h-12 w-12 text-muted-foreground" />
-                )}
-              </div>
-              <h3 className="font-semibold text-sm mb-1 line-clamp-2">
+            <div className="flex aspect-square w-full items-center justify-center overflow-hidden bg-muted">
+              {imageUrl ? (
+                <img
+                  src={imageUrl}
+                  alt={product?.images?.[0]?.alt ?? product?.name ?? 'Product'}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Package className="h-12 w-12 text-muted-foreground" />
+              )}
+            </div>
+            <div className="px-1 py-1.5 sm:px-1.5 sm:py-2">
+              <h3 className="mb-0.5 line-clamp-2 text-base font-semibold sm:text-lg">
                 {product?.name ?? 'Unknown Product'}
               </h3>
-              <p className="text-lg font-bold text-primary">
+              <p className="text-sm font-semibold text-primary sm:text-base">
                 {formatCurrency(price)}
               </p>
-              <Badge
-                variant={isOutOfStock ? 'destructive' : 'outline'}
-                className="mt-2"
-              >
-                Stock: {stock}
-              </Badge>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         );
       })}
     </div>

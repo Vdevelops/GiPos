@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"mime/multipart"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -26,7 +27,21 @@ func NewUploadService(cfg *config.Config) (*UploadService, error) {
 		BasePath:        cfg.Storage.StorageBasePath,
 	}
 
-	storage, err := NewStorage(cfg.Storage.Type, r2Config)
+	publicBaseURL := strings.TrimSpace(os.Getenv("UPLOAD_PUBLIC_BASE_URL"))
+	if publicBaseURL == "" {
+		host := cfg.Server.Host
+		if host == "" || host == "0.0.0.0" {
+			host = "localhost"
+		}
+		publicBaseURL = fmt.Sprintf("http://%s:%s", host, cfg.Server.Port)
+	}
+
+	localConfig := LocalConfig{
+		UploadPath:    cfg.Upload.Path,
+		PublicBaseURL: publicBaseURL,
+	}
+
+	storage, err := NewStorage(cfg.Storage.Type, r2Config, localConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
 	}

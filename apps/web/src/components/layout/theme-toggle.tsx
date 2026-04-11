@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { Monitor, Sun, Moon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,13 +17,8 @@ export function ThemeToggle() {
   const setMode = useThemeStore((state) => state.setMode)
   const getEffectiveTheme = useThemeStore((state) => state.getEffectiveTheme)
   const mounted = useThemeStore((state) => state.mounted)
-  const [mountedState, setMountedState] = useState(false)
 
-  useEffect(() => {
-    setMountedState(true)
-  }, [])
-
-  if (!mountedState || !mounted) {
+  if (!mounted) {
     // Render placeholder to prevent hydration mismatch
     return (
       <Button variant="ghost" size="icon" className="h-9 w-9" disabled>

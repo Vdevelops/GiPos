@@ -22,9 +22,17 @@ func NewProductImageHandler(imageUsecase *usecase.ProductImageUsecase) *ProductI
 	}
 }
 
+func getProductIDParam(c *gin.Context) string {
+	productID := c.Param("product_id")
+	if productID == "" {
+		productID = c.Param("id")
+	}
+	return productID
+}
+
 // CreateProductImage handles POST /api/v1/products/:product_id/images
 func (h *ProductImageHandler) CreateProductImage(c *gin.Context) {
-	productID := c.Param("product_id")
+	productID := getProductIDParam(c)
 
 	var req dto.ProductImageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -82,7 +90,7 @@ func (h *ProductImageHandler) GetProductImage(c *gin.Context) {
 
 // GetProductImages handles GET /api/v1/products/:product_id/images
 func (h *ProductImageHandler) GetProductImages(c *gin.Context) {
-	productID := c.Param("product_id")
+	productID := getProductIDParam(c)
 
 	tenantID, exists := c.Get("tenant_id")
 	if !exists {
@@ -153,7 +161,7 @@ func (h *ProductImageHandler) DeleteProductImage(c *gin.Context) {
 
 // BulkCreateProductImages handles POST /api/v1/products/:product_id/images/bulk
 func (h *ProductImageHandler) BulkCreateProductImages(c *gin.Context) {
-	productID := c.Param("product_id")
+	productID := getProductIDParam(c)
 
 	var req dto.BulkProductImageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

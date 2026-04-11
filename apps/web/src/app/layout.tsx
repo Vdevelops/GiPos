@@ -1,4 +1,4 @@
-import { Geist, Geist_Mono } from "next/font/google";
+import { JetBrains_Mono, Manrope } from "next/font/google";
 import { getLocale } from 'next-intl/server';
 import { routing } from '@/i18n/routing';
 import type { Locale } from '@/features/dashboard/types';
@@ -7,14 +7,16 @@ import { themeScript } from '@/lib/theme-script';
 import Script from 'next/script';
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
+  display: 'swap',
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
+  display: 'swap',
 });
 
 // This root layout is required by Next.js App Router
@@ -38,7 +40,7 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${manrope.variable} ${jetbrainsMono.variable} antialiased`}>
         <Script
           id="theme-init"
           strategy="beforeInteractive"

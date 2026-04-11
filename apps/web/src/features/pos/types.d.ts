@@ -13,9 +13,9 @@ export interface Sale {
   subtotal: number; // in sen
   discount_amount: number; // in sen
   discount_percent: number;
-  tax_amount: number; // in sen
+  tax_amount: number; // in sen (always 0 in POS flow)
   total: number; // in sen
-  payment_method: 'cash' | 'qris' | 'e_wallet' | 'transfer' | 'card';
+  payment_method: 'cash' | 'qris';
   payment_status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
   status: 'pending' | 'completed' | 'cancelled' | 'refunded';
   notes?: string | null;
@@ -64,8 +64,7 @@ export interface CreateSaleRequest {
   items: CreateSaleItemRequest[];
   discount_amount?: number | null; // in sen
   discount_percent?: number | null;
-  taxable?: boolean;
-  payment_method: 'cash' | 'qris' | 'e_wallet' | 'transfer' | 'card';
+  payment_method: 'cash' | 'qris';
   notes?: string | null;
 }
 
@@ -91,7 +90,7 @@ export interface SaleListQuery {
   customer_id?: string;
   status?: 'pending' | 'completed' | 'cancelled' | 'refunded';
   payment_status?: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
-  payment_method?: 'cash' | 'qris' | 'e_wallet' | 'transfer' | 'card';
+  payment_method?: 'cash' | 'qris';
   start_date?: string; // ISO 8601
   end_date?: string; // ISO 8601
   search?: string; // search by invoice number
@@ -118,8 +117,9 @@ export type SaleListResponse = ApiResponse<Sale[]> & {
 export interface Payment {
   id: string;
   sale_id: string;
-  method: 'cash' | 'qris' | 'e_wallet' | 'transfer' | 'card';
+  method: 'cash' | 'qris';
   amount: number; // in sen
+  change?: number | null; // in sen, for cash payment
   status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
   gateway?: string | null;
   gateway_id?: string | null;
@@ -141,12 +141,10 @@ export interface Payment {
 // Payment Request Types
 export interface ProcessPaymentRequest {
   sale_id: string;
-  method: 'cash' | 'qris' | 'e_wallet' | 'transfer' | 'card';
+  method: 'cash' | 'qris';
   amount: number; // in sen
+  amount_paid?: number | null; // in sen, for cash payment
   cash_received?: number | null; // in sen, for cash payment
-  e_wallet_type?: 'gopay' | 'ovo' | 'shopee_pay' | 'dana' | null;
-  bank_name?: string | null;
-  account_number?: string | null;
 }
 
 export interface UpdatePaymentRequest {

@@ -183,15 +183,15 @@ export function PremiumFeatures() {
               <CardContent className="space-y-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                     <span>Table Management</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                     <span>Kitchen Display System</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                     <span>Split Bill</span>
                   </div>
                 </div>
@@ -214,15 +214,15 @@ export function PremiumFeatures() {
               <CardContent className="space-y-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                     <span>Booking & Schedule</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                     <span>Stylist Assignment</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                     <span>Commission Tracking</span>
                   </div>
                 </div>
@@ -245,15 +245,15 @@ export function PremiumFeatures() {
               <CardContent className="space-y-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                     <span>Prescription Management</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                     <span>Batch & Expiry Tracking</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                     <span>Drug Interaction Check</span>
                   </div>
                 </div>

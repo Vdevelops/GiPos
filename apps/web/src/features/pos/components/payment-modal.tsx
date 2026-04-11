@@ -22,7 +22,7 @@ interface PaymentModalProps {
   readonly items: CartItem[];
   readonly total: number; // in sen
   readonly taxable?: boolean;
-  readonly onPayment: (method: string, data: Record<string, unknown>) => void;
+  readonly onPayment: (method: string, data: Record<string, unknown>) => void | Promise<void>;
   readonly isLoading?: boolean;
 }
 
@@ -42,7 +42,7 @@ export function PaymentModal({
   const [eWalletType, setEWalletType] = useState<'gopay' | 'ovo' | 'shopee_pay' | 'dana' | null>(null);
   const [bankName, setBankName] = useState<string>('');
 
-  const handlePayment = () => {
+  const handlePayment = async () => {
     if (!selectedMethod) return;
 
     const paymentData: Record<string, unknown> = {
@@ -64,7 +64,11 @@ export function PaymentModal({
       paymentData.bank_name = bankName || null;
     }
 
-    onPayment(selectedMethod, paymentData);
+    try {
+      await onPayment(selectedMethod, paymentData);
+    } catch (error) {
+      console.error('Payment failed:', error);
+    }
   };
 
   const cashAmount = parseFloat(cashReceived) || 0;
@@ -137,7 +141,7 @@ export function PaymentModal({
                   <Separator />
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Change</span>
-                    <span className="text-green-600">
+                    <span className="text-success">
                       {formatCurrency(change)}
                     </span>
                   </div>
@@ -189,7 +193,9 @@ export function PaymentModal({
             </Button>
             <Button
               className="flex-1"
-              onClick={handlePayment}
+              onClick={() => {
+                void handlePayment();
+              }}
               disabled={
                 isLoading ||
                 !selectedMethod ||

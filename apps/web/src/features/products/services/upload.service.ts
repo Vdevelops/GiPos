@@ -42,9 +42,14 @@ export class UploadService {
    * Delete an image file
    */
   static async deleteImage(url: string): Promise<void> {
-    return apiRequest<void>(`${this.basePath}/image`, {
+    const response = await apiRequest<void>(`${this.basePath}/image`, {
       method: 'DELETE',
       body: JSON.stringify({ url }),
+      requireAuth: true,
     });
+
+    if (!response.success) {
+      throw new Error(response.error?.message_en || 'Failed to delete image');
+    }
   }
 }

@@ -37,6 +37,27 @@ To develop a specific app:
 pnpm --filter web dev
 ```
 
+### Kiosk Mode (Local Fullscreen)
+
+After web app is running, launch browser kiosk mode:
+
+```bash
+pnpm --filter web kiosk:local
+```
+
+Use a custom URL (for LAN IP or another host) in PowerShell:
+
+```powershell
+$env:KIOSK_URL = "http://192.168.1.10:3000"
+pnpm --filter web kiosk:url
+```
+
+Shortcut from workspace root:
+
+```bash
+pnpm dev:kiosk:web
+```
+
 ### Build
 
 To build all apps:

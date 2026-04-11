@@ -9,10 +9,10 @@ import (
 	outletModels "gipos/api/internal/master-data/outlet/data/models"
 	productModels "gipos/api/internal/master-data/products/data/models"
 
-	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
-// fixIDs updates all records that have empty ID
+// fixIDs updates all records that have zero ID.
 func main() {
 	log.Println("🔧 Starting ID fix script...")
 
@@ -43,20 +43,24 @@ func main() {
 	log.Println("🔧 Fixing Outlet IDs...")
 	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	var outlets []outletModels.Outlet
-	// Query outlets with empty or null ID (PostgreSQL)
-	// Use raw SQL to handle empty string and NULL properly
-	if err := db.Where("(id = '' OR id IS NULL) AND deleted_at IS NULL").Find(&outlets).Error; err != nil {
+	if err := db.Where("id = 0 AND deleted_at IS NULL").Find(&outlets).Error; err != nil {
 		log.Printf("⚠️  Error querying outlets: %v", err)
 	} else {
-		log.Printf("📋 Found %d outlets without ID", len(outlets))
+		log.Printf("📋 Found %d outlets with zero ID", len(outlets))
 		fixedCount := 0
+		nextID, err := getNextID(db, "outlets")
+		if err != nil {
+			log.Printf("⚠️  Failed to compute next outlet ID: %v", err)
+			nextID = 1
+		}
 		for i := range outlets {
-			if outlets[i].ID == "" {
-				newID := uuid.New().String()
+			if outlets[i].ID == 0 {
+				newID := nextID
+				nextID++
 				if err := db.Model(&outlets[i]).Update("id", newID).Error; err != nil {
 					log.Printf("❌ Failed to update outlet %s: %v", outlets[i].Code, err)
 				} else {
-					log.Printf("✅ Fixed outlet: %s - New ID: %s", outlets[i].Code, newID)
+					log.Printf("✅ Fixed outlet: %s - New ID: %d", outlets[i].Code, newID)
 					fixedCount++
 				}
 			}
@@ -70,19 +74,24 @@ func main() {
 	log.Println("🔧 Fixing Category IDs...")
 	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	var categories []categoryModels.Category
-	// Query categories with empty or null ID
-	if err := db.Where("(id = '' OR id IS NULL) AND deleted_at IS NULL").Find(&categories).Error; err != nil {
+	if err := db.Where("id = 0 AND deleted_at IS NULL").Find(&categories).Error; err != nil {
 		log.Printf("⚠️  Error querying categories: %v", err)
 	} else {
-		log.Printf("📋 Found %d categories without ID", len(categories))
+		log.Printf("📋 Found %d categories with zero ID", len(categories))
 		fixedCount := 0
+		nextID, err := getNextID(db, "categories")
+		if err != nil {
+			log.Printf("⚠️  Failed to compute next category ID: %v", err)
+			nextID = 1
+		}
 		for i := range categories {
-			if categories[i].ID == "" {
-				newID := uuid.New().String()
+			if categories[i].ID == 0 {
+				newID := nextID
+				nextID++
 				if err := db.Model(&categories[i]).Update("id", newID).Error; err != nil {
 					log.Printf("❌ Failed to update category %s: %v", categories[i].Name, err)
 				} else {
-					log.Printf("✅ Fixed category: %s - New ID: %s", categories[i].Name, newID)
+					log.Printf("✅ Fixed category: %s - New ID: %d", categories[i].Name, newID)
 					fixedCount++
 				}
 			}
@@ -96,19 +105,24 @@ func main() {
 	log.Println("🔧 Fixing Product IDs...")
 	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	var products []productModels.Product
-	// Query products with empty or null ID
-	if err := db.Where("(id = '' OR id IS NULL) AND deleted_at IS NULL").Find(&products).Error; err != nil {
+	if err := db.Where("id = 0 AND deleted_at IS NULL").Find(&products).Error; err != nil {
 		log.Printf("⚠️  Error querying products: %v", err)
 	} else {
-		log.Printf("📋 Found %d products without ID", len(products))
+		log.Printf("📋 Found %d products with zero ID", len(products))
 		fixedCount := 0
+		nextID, err := getNextID(db, "products")
+		if err != nil {
+			log.Printf("⚠️  Failed to compute next product ID: %v", err)
+			nextID = 1
+		}
 		for i := range products {
-			if products[i].ID == "" {
-				newID := uuid.New().String()
+			if products[i].ID == 0 {
+				newID := nextID
+				nextID++
 				if err := db.Model(&products[i]).Update("id", newID).Error; err != nil {
 					log.Printf("❌ Failed to update product %s: %v", products[i].SKU, err)
 				} else {
-					log.Printf("✅ Fixed product: %s - New ID: %s", products[i].SKU, newID)
+					log.Printf("✅ Fixed product: %s - New ID: %d", products[i].SKU, newID)
 					fixedCount++
 				}
 			}
@@ -121,4 +135,13 @@ func main() {
 	log.Println("✅ ID fix completed")
 	log.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	log.Println("")
+}
+
+func getNextID(db *gorm.DB, tableName string) (uint, error) {
+	var maxID uint
+	if err := db.Table(tableName).Select("COALESCE(MAX(id), 0)").Scan(&maxID).Error; err != nil {
+		return 0, err
+	}
+
+	return maxID + 1, nil
 }

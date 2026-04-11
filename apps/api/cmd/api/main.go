@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -20,6 +22,9 @@ import (
 )
 
 func main() {
+	serverOnly := flag.Bool("server-only", false, "start API server without auto migration and seeding")
+	flag.Parse()
+
 	// Set log output to stderr for better visibility in Docker
 	log.SetOutput(os.Stderr)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -71,20 +76,26 @@ func main() {
 		}()
 	}
 	
-	// Run migrations
-	log.Println("🔄 Running database migrations...")
-	if err := database.AutoMigrate(); err != nil {
-		log.Printf("❌ ERROR: Failed to run migrations: %v", err)
-		log.Println("💡 Tip: Check database permissions and schema")
-		os.Exit(1)
-	}
-	log.Println("✅ Migrations completed successfully")
-	
-	// Run seeders (only in development or if AUTO_SEED is enabled)
-	if cfg.App.Env == "development" || os.Getenv("AUTO_SEED") == "true" {
-		log.Println("🌱 Running database seeders...")
-		seeder.RunAllSeeders()
-		log.Println("✅ Seeders completed")
+	if *serverOnly {
+		log.Println("⚠️  --server-only enabled, skipping database migrations and seeders")
+	} else {
+		// Run migrations
+		log.Println("🔄 Running database migrations...")
+		if err := database.AutoMigrate(); err != nil {
+			log.Printf("❌ ERROR: Failed to run migrations: %v", err)
+			log.Println("💡 Tip: Check database permissions and schema")
+			os.Exit(1)
+		}
+		log.Println("✅ Migrations completed successfully")
+
+		// Run seeders (only in development or if AUTO_SEED is enabled)
+		if os.Getenv("SKIP_AUTO_SEED") == "1" {
+			log.Println("⚠️  SKIP_AUTO_SEED=1, skipping database seeders")
+		} else if cfg.App.Env == "development" || os.Getenv("AUTO_SEED") == "true" {
+			log.Println("🌱 Running database seeders...")
+			seeder.RunAllSeeders()
+			log.Println("✅ Seeders completed")
+		}
 	}
 	
 	defer func() {
@@ -104,10 +115,11 @@ func main() {
 
 	// Setup routes
 	log.Println("🛣️  Setting up routes...")
-	if err := func() error {
+	if err := func() (setupErr error) {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("❌ PANIC: Route setup failed: %v", r)
+				setupErr = fmt.Errorf("route setup panic: %v", r)
 			}
 		}()
 		approuter.SetupRoutes(router)

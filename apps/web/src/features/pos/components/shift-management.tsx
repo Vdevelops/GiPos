@@ -87,7 +87,7 @@ export function ShiftManagement() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">{t('totalSales')}</p>
-                <p className="text-xl font-bold text-green-600">
+                <p className="text-xl font-bold text-success">
                   {formatCurrency(openShift?.total_sales ?? 0)}
                 </p>
               </div>

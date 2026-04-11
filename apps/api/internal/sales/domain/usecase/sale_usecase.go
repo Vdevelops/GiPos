@@ -13,7 +13,7 @@ import (
 	"gipos/api/internal/sales/data/models"
 	"gipos/api/internal/sales/data/repositories"
 	"gipos/api/internal/sales/domain/dto"
-	stockModels "gipos/api/internal/stock/data/models"
+	stockService "gipos/api/internal/stock/domain/service"
 
 	"gorm.io/gorm"
 )
@@ -61,6 +61,7 @@ type SaleUsecase struct {
 	productStockRepo *productStockRepo.ProductStockRepository
 	outletRepo      *outletRepo.OutletRepository
 	shiftRepo       *repositories.ShiftRepository
+	stockService    *stockService.StockService
 	db              *gorm.DB
 }
 
@@ -72,6 +73,7 @@ func NewSaleUsecase(
 	productStockRepo *productStockRepo.ProductStockRepository,
 	outletRepo *outletRepo.OutletRepository,
 	shiftRepo *repositories.ShiftRepository,
+	stockService *stockService.StockService,
 	db *gorm.DB,
 ) *SaleUsecase {
 	return &SaleUsecase{
@@ -81,6 +83,7 @@ func NewSaleUsecase(
 		productStockRepo: productStockRepo,
 		outletRepo:      outletRepo,
 		shiftRepo:       shiftRepo,
+		stockService:    stockService,
 		db:              db,
 	}
 }
@@ -150,13 +153,51 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 		return nil, errors.New("CART_EMPTY")
 	}
 
-	// Process items and validate stock
+	// Normalize incoming lines so repeated product clicks are treated as quantity increments.
+	aggregatedItemByProduct := make(map[string]*dto.CreateSaleItemRequest, len(req.Items))
+	productOrder := make([]string, 0, len(req.Items))
+	for _, itemReq := range req.Items {
+		if itemReq.ProductID == "" || itemReq.Quantity <= 0 {
+			return nil, errors.New("INVALID_QUANTITY")
+		}
+
+		existing, exists := aggregatedItemByProduct[itemReq.ProductID]
+		if !exists {
+			cloned := itemReq
+			aggregatedItemByProduct[itemReq.ProductID] = &cloned
+			productOrder = append(productOrder, itemReq.ProductID)
+			continue
+		}
+
+		existing.Quantity += itemReq.Quantity
+		if existing.UnitPrice == nil && itemReq.UnitPrice != nil {
+			unitPrice := *itemReq.UnitPrice
+			existing.UnitPrice = &unitPrice
+		}
+		if itemReq.DiscountAmount != nil {
+			if existing.DiscountAmount == nil {
+				defaultDiscount := int64(0)
+				existing.DiscountAmount = &defaultDiscount
+			}
+			*existing.DiscountAmount += *itemReq.DiscountAmount
+		}
+		if itemReq.DiscountPercent != nil {
+			existing.DiscountPercent = itemReq.DiscountPercent
+		}
+	}
+
+	normalizedItems := make([]dto.CreateSaleItemRequest, 0, len(productOrder))
+	for _, productID := range productOrder {
+		normalizedItems = append(normalizedItems, *aggregatedItemByProduct[productID])
+	}
+
+	// Process items
 	var saleItems []models.SaleItem
 	var subtotal int64 = 0
 	var totalDiscountAmount int64 = 0
 	var totalTaxAmount int64 = 0
 
-	for _, itemReq := range req.Items {
+	for _, itemReq := range normalizedItems {
 		// Convert productID from string to uint
 		productIDUint, err := stringToUint(itemReq.ProductID)
 		if err != nil {
@@ -188,18 +229,6 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 			unitPrice = *itemReq.UnitPrice
 		}
 
-		// Check stock if product tracks stock
-		if product.TrackStock {
-			totalStock, err := uc.productStockRepo.GetTotalStock(tenantIDUint, productIDUint)
-			if err != nil {
-				return nil, errors.New("INTERNAL_SERVER_ERROR")
-			}
-			availableStock := totalStock
-			if availableStock < itemReq.Quantity {
-				return nil, errors.New("INSUFFICIENT_STOCK")
-			}
-		}
-
 		// Calculate item amounts
 		itemSubtotal := int64(itemReq.Quantity) * unitPrice
 		itemDiscountAmount := int64(0)
@@ -215,10 +244,6 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 
 		itemAfterDiscount := itemSubtotal - itemDiscountAmount
 		itemTaxAmount := int64(0)
-		if req.Taxable && product.Taxable {
-			// PPN 10%
-			itemTaxAmount = int64(float64(itemAfterDiscount) * 0.10)
-		}
 		itemTotal := itemAfterDiscount + itemTaxAmount
 
 		// Create sale item
@@ -261,7 +286,7 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 
 	// Calculate final total
 	finalSubtotal := subtotal - totalDiscountAmount
-	total := finalSubtotal + totalTaxAmount
+	total := finalSubtotal
 
 	// Calculate discount percent
 	discountPercent := float64(0)
@@ -277,8 +302,9 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 	var lastSale models.Sale
 	err = uc.db.Where("tenant_id = ? AND outlet_id = ? AND invoice_number LIKE ?", tenantIDUint, outletIDUint, fmt.Sprintf("INV-%s-%s-%%", dateStr, outletCode)).
 		Order("invoice_number DESC").
-		First(&lastSale).Error
-	if err == nil {
+		Limit(1).
+		Find(&lastSale).Error
+	if err == nil && lastSale.ID != 0 {
 		// Extract sequence from last invoice number
 		// Format: INV-YYYYMMDD-OUTLETCODE-SEQUENCE
 		if len(lastSale.InvoiceNumber) > len(fmt.Sprintf("INV-%s-%s-", dateStr, outletCode)) {
@@ -341,78 +367,43 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 			return err
 		}
 
-		// Deduct stock for each item if product tracks stock
-		for _, item := range saleItems {
-			product, err := uc.productRepo.GetByID(tenantIDUint, item.ProductID)
-			if err != nil {
-				continue
-			}
+		var persistedTotals struct {
+			Subtotal       int64 `gorm:"column:subtotal"`
+			DiscountAmount int64 `gorm:"column:discount_amount"`
+			TaxAmount      int64 `gorm:"column:tax_amount"`
+			Total          int64 `gorm:"column:total"`
+		}
+		if err := tx.Table("sale_items").
+			Where("tenant_id = ? AND sale_id = ? AND deleted_at IS NULL", tenantIDUint, sale.ID).
+			Select("COALESCE(SUM(subtotal), 0) AS subtotal, COALESCE(SUM(discount_amount), 0) AS discount_amount, COALESCE(SUM(tax_amount), 0) AS tax_amount, COALESCE(SUM(total), 0) AS total").
+			Scan(&persistedTotals).Error; err != nil {
+			return err
+		}
 
-			if product.TrackStock {
-				// Get all stocks for product
-				stocks, err := uc.productStockRepo.GetByProductID(tenantIDUint, item.ProductID)
-				if err != nil {
-					continue
-				}
+		if persistedTotals.Subtotal != sale.Subtotal || persistedTotals.TaxAmount != sale.TaxAmount {
+			return errors.New("ITEMS_TOTAL_MISMATCH")
+		}
 
-				// Deduct from stocks (FIFO - first warehouse first)
-				remainingQty := item.Quantity
-				for _, stock := range stocks {
-					if remainingQty <= 0 {
-						break
-					}
+		if sale.DiscountAmount < persistedTotals.DiscountAmount {
+			return errors.New("ITEMS_TOTAL_MISMATCH")
+		}
 
-					deductQty := remainingQty
-					if stock.Quantity < deductQty {
-						deductQty = stock.Quantity
-					}
-
-					balanceBefore := stock.Quantity
-					stock.Quantity -= deductQty
-					balanceAfter := stock.Quantity
-
-					// Update stock
-					if err := tx.Model(&stock).Update("quantity", stock.Quantity).Error; err != nil {
-						return err
-					}
-
-					// Create stock movement
-					stockMovement := stockModels.StockMovement{
-						TenantModel: sharedModels.TenantModel{
-							TenantID: tenantIDUint,
-						},
-						ProductID:     item.ProductID,
-						WarehouseID:  stock.WarehouseID,
-						Type:         stockModels.StockMovementTypeOut,
-						Quantity:     -deductQty, // Negative for out
-						BalanceBefore: balanceBefore,
-						BalanceAfter:  balanceAfter,
-						ReferenceType: stockModels.StockMovementRefSale,
-						ReferenceID:   &sale.ID,
-						MovementDate:  time.Now(),
-					}
-					if err := tx.Create(&stockMovement).Error; err != nil {
-						return err
-					}
-
-					remainingQty -= deductQty
-				}
-
-				// If still remaining quantity, it means stock was insufficient (shouldn't happen due to validation)
-				if remainingQty > 0 {
-					return errors.New("INSUFFICIENT_STOCK")
-				}
-			}
+		saleLevelDiscountAmount := sale.DiscountAmount - persistedTotals.DiscountAmount
+		expectedSaleTotal := persistedTotals.Total - saleLevelDiscountAmount
+		if expectedSaleTotal != sale.Total {
+			return errors.New("ITEMS_TOTAL_MISMATCH")
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		if err.Error() == "INSUFFICIENT_STOCK" {
-			return nil, errors.New("INSUFFICIENT_STOCK")
+		switch err.Error() {
+		case "ITEMS_TOTAL_MISMATCH":
+			return nil, errors.New(err.Error())
+		default:
+			return nil, errors.New("INTERNAL_SERVER_ERROR")
 		}
-		return nil, errors.New("INTERNAL_SERVER_ERROR")
 	}
 
 	// Reload sale with relations
@@ -504,7 +495,7 @@ func (uc *SaleUsecase) ListSales(tenantID string, outletID *string, shiftID *str
 }
 
 // VoidSale voids a sale (before payment)
-func (uc *SaleUsecase) VoidSale(tenantID, id string, userID string) error {
+func (uc *SaleUsecase) VoidSale(tenantID, id string, _ string) error {
 	tenantIDUint, err := stringToUint(tenantID)
 	if err != nil {
 		return errors.New("INVALID_TENANT_ID")
@@ -531,7 +522,7 @@ func (uc *SaleUsecase) VoidSale(tenantID, id string, userID string) error {
 		return errors.New("VOID_NOT_ALLOWED")
 	}
 
-	// Void sale and restore stock
+	// Void sale
 	now := time.Now()
 	err = uc.db.Transaction(func(tx *gorm.DB) error {
 		// Update sale status
@@ -539,53 +530,6 @@ func (uc *SaleUsecase) VoidSale(tenantID, id string, userID string) error {
 		sale.CancelledAt = &now
 		if err := tx.Save(sale).Error; err != nil {
 			return err
-		}
-
-		// Restore stock for each item
-		for _, item := range sale.Items {
-			product, err := uc.productRepo.GetByID(tenantIDUint, item.ProductID)
-			if err != nil {
-				continue
-			}
-
-			if product.TrackStock {
-				// Get stocks and restore (restore to first warehouse)
-				stocks, err := uc.productStockRepo.GetByProductID(tenantIDUint, item.ProductID)
-				if err != nil || len(stocks) == 0 {
-					continue
-				}
-
-				// Restore to first warehouse
-				stock := stocks[0]
-				balanceBefore := stock.Quantity
-				stock.Quantity += item.Quantity
-				balanceAfter := stock.Quantity
-
-				// Update stock
-				if err := tx.Model(&stock).Update("quantity", stock.Quantity).Error; err != nil {
-					return err
-				}
-
-				// Create stock movement for restoration
-				stockMovement := stockModels.StockMovement{
-					TenantModel: sharedModels.TenantModel{
-						TenantID: tenantIDUint,
-					},
-					ProductID:     item.ProductID,
-					WarehouseID:  stock.WarehouseID,
-					Type:         stockModels.StockMovementTypeIn,
-					Quantity:     item.Quantity, // Positive for in
-					BalanceBefore: balanceBefore,
-					BalanceAfter:  balanceAfter,
-					ReferenceType: stockModels.StockMovementRefSale,
-					ReferenceID:   &sale.ID,
-					MovementDate:  time.Now(),
-					Notes:         "Stock restored from voided sale",
-				}
-				if err := tx.Create(&stockMovement).Error; err != nil {
-					return err
-				}
-			}
 		}
 
 		return nil

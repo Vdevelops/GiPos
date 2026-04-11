@@ -6,9 +6,11 @@ import (
 	outletRepo "gipos/api/internal/master-data/outlet/data/repositories"
 	productRepo "gipos/api/internal/master-data/products/data/repositories"
 	productStockRepo "gipos/api/internal/master-data/products/data/repositories"
+	reportRepo "gipos/api/internal/reports/data/repositories"
 	"gipos/api/internal/sales/data/repositories"
 	"gipos/api/internal/sales/domain/usecase"
 	"gipos/api/internal/sales/presentation/handler"
+	stockService "gipos/api/internal/stock/domain/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,9 +26,11 @@ func SetupSalesRoutes(r *gin.RouterGroup) {
 	productRepo := productRepo.NewProductRepository(db)
 	productStockRepo := productStockRepo.NewProductStockRepository(db)
 	outletRepo := outletRepo.NewOutletRepository(db)
+	reportsRepo := reportRepo.NewReportRepository(db)
+	stockSvc := stockService.NewStockService()
 
-	saleUsecase := usecase.NewSaleUsecase(saleRepo, saleItemRepo, productRepo, productStockRepo, outletRepo, shiftRepo, db)
-	paymentUsecase := usecase.NewPaymentUsecase(paymentRepo, saleRepo)
+	saleUsecase := usecase.NewSaleUsecase(saleRepo, saleItemRepo, productRepo, productStockRepo, outletRepo, shiftRepo, stockSvc, db)
+	paymentUsecase := usecase.NewPaymentUsecase(paymentRepo, saleRepo, reportsRepo, db)
 	shiftUsecase := usecase.NewShiftUsecase(shiftRepo, saleRepo, outletRepo)
 
 	saleHandler := handler.NewSaleHandler(saleUsecase)
@@ -41,7 +45,7 @@ func SetupSalesRoutes(r *gin.RouterGroup) {
 		sales.GET("", saleHandler.ListSales)
 		sales.GET("/:id", saleHandler.GetSale)
 		sales.POST("/:id/void", saleHandler.VoidSale)
-		sales.GET("/:sale_id/payment", paymentHandler.GetPaymentBySaleID)
+		sales.GET("/:id/payment", paymentHandler.GetPaymentBySaleID)
 	}
 
 	// Payment routes (protected - require auth middleware)

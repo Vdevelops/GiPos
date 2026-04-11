@@ -23,7 +23,6 @@ export function WarehouseList() {
   const t = useTranslations('products');
   const tCommon = useTranslations('common');
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
   const [deletingWarehouse, setDeletingWarehouse] = useState<Warehouse | null>(null);
@@ -31,7 +30,6 @@ export function WarehouseList() {
   const { data, isLoading, error } = useWarehouses({
     page,
     per_page: 20,
-    status: statusFilter !== 'all' ? statusFilter : undefined,
   });
 
   const deleteWarehouseMutation = useDeleteWarehouse();
@@ -76,14 +74,14 @@ export function WarehouseList() {
   return (
     <>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">{t('warehousesTitle')}</h2>
             <p className="text-muted-foreground">
               {pagination?.total ?? 0} warehouse{pagination?.total !== 1 ? 's' : ''} found
             </p>
           </div>
-          <Button onClick={handleAddWarehouse}>
+          <Button onClick={handleAddWarehouse} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             {t('addWarehouse')}
           </Button>
@@ -109,7 +107,7 @@ export function WarehouseList() {
               </div>
             ) : warehouses.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <WarehouseIcon className="h-12 w-12 text-muted-foreground mb-4" />
+                <WarehouseIcon className="mb-4 h-12 w-12 text-muted-foreground" />
                 <p className="text-muted-foreground">{t('noWarehouses')}</p>
                 <Button onClick={handleAddWarehouse} className="mt-4">
                   {t('addFirstWarehouse')}
@@ -120,24 +118,22 @@ export function WarehouseList() {
                 {warehouses.map((warehouse) => (
                   <div
                     key={warehouse?.id ?? 'unknown'}
-                    className="flex items-center justify-between rounded-lg border p-4"
+                    className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex min-w-0 items-start gap-4 sm:items-center">
                       <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                         <WarehouseIcon className="h-6 w-6 text-primary" />
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
                           <h3 className="font-semibold">{warehouse?.name ?? 'Unknown'}</h3>
                           {warehouse?.is_default && (
                             <Badge variant="default" className="text-xs">
-                              Default
+                              {t('isDefaultWarehouse')}
                             </Badge>
                           )}
                           <Badge
-                            variant={
-                              warehouse?.status === 'active' ? 'default' : 'secondary'
-                            }
+                            variant={warehouse?.status === 'active' ? 'default' : 'secondary'}
                             className="text-xs"
                           >
                             {warehouse?.status === 'active' ? t('active') : t('inactive')}
@@ -148,15 +144,13 @@ export function WarehouseList() {
                           {warehouse?.outlet && ` • ${warehouse.outlet.name}`}
                         </p>
                         {warehouse?.address && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {warehouse.address}
-                          </p>
+                          <p className="mt-1 text-sm text-muted-foreground">{warehouse.address}</p>
                         )}
                       </div>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" className="self-end sm:self-auto">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -179,9 +173,8 @@ export function WarehouseList() {
                   </div>
                 ))}
 
-                {/* Pagination */}
                 {pagination && pagination.total_pages > 1 && (
-                  <div className="flex items-center justify-between pt-4 border-t">
+                  <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-muted-foreground">
                       Page {pagination.page} of {pagination.total_pages}
                     </p>
@@ -197,9 +190,7 @@ export function WarehouseList() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() =>
-                          setPage((p) => Math.min(pagination.total_pages, p + 1))
-                        }
+                        onClick={() => setPage((p) => Math.min(pagination.total_pages, p + 1))}
                         disabled={page === pagination.total_pages}
                       >
                         {tCommon('next')}
@@ -213,14 +204,8 @@ export function WarehouseList() {
         </Card>
       </div>
 
-      {/* Warehouse Form Dialog */}
-      <WarehouseForm
-        open={showAddForm}
-        onOpenChange={handleCloseForm}
-        warehouse={editingWarehouse}
-      />
+      <WarehouseForm open={showAddForm} onOpenChange={handleCloseForm} warehouse={editingWarehouse} />
 
-      {/* Delete Dialog */}
       <DeleteDialog
         open={!!deletingWarehouse}
         onOpenChange={(open) => {

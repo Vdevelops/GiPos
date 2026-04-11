@@ -15,8 +15,8 @@ import { AuthLayout } from "./auth-layout"
 import { useLogin } from "../hooks/use-login"
 
 const loginSchema = z.object({
-  email: z.string().min(1, "Email is required").email("Invalid email format"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  identifier: z.string().min(1, "Email / Username is required"),
+  password: z.string().optional(),
   rememberMe: z.boolean().optional(),
 })
 
@@ -29,7 +29,7 @@ export function LoginForm() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      identifier: "",
       password: "",
       rememberMe: false,
     },
@@ -38,8 +38,9 @@ export function LoginForm() {
   // Sync field errors from hook to form
   useEffect(() => {
     for (const [field, message] of Object.entries(fieldErrors)) {
-      if (field === 'email' || field === 'password') {
-        form.setError(field as keyof LoginFormValues, {
+      if (field === 'identifier' || field === 'email' || field === 'password') {
+        const targetField = field === 'email' ? 'identifier' : field;
+        form.setError(targetField as keyof LoginFormValues, {
           type: 'server',
           message,
         })
@@ -61,7 +62,7 @@ export function LoginForm() {
     form.clearErrors()
     
     await login({
-      email: values.email,
+      identifier: values.identifier,
       password: values.password,
     })
   }
@@ -78,14 +79,14 @@ export function LoginForm() {
             <CardContent className="space-y-4 px-0">
               <FormField
                 control={form.control}
-                name="email"
+                name="identifier"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('email')}</FormLabel>
+                    <FormLabel>Email / Username</FormLabel>
                     <FormControl>
                       <Input 
-                        type="email" 
-                        placeholder="nama@email.com" 
+                        type="text" 
+                        placeholder="admin atau nama@email.com" 
                         {...field} 
                         disabled={isLoading}
                         className="h-11"
@@ -112,7 +113,7 @@ export function LoginForm() {
                     <FormControl>
                       <Input 
                         type="password" 
-                        placeholder="••••••••" 
+                        placeholder="Kosongkan untuk akun kasir" 
                         {...field} 
                         disabled={isLoading}
                         className="h-11"

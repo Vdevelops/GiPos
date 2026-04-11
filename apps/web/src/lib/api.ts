@@ -4,20 +4,47 @@ import type {
   LoginResponse,
   LoginResponseData,
   ApiError,
+  TokenData,
 } from '@/features/auth/types';
 import { tokenStorage } from './token';
+
+const REFRESH_ENDPOINT = 'auth/refresh';
+let refreshPromise: Promise<boolean> | null = null;
+
+function normalizeBaseUrl(value: string): string {
+  const trimmed = value.trim();
+  return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+}
+
+function normalizeBasePath(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === '/') {
+    return '';
+  }
+
+  const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return withLeadingSlash.endsWith('/') ? withLeadingSlash.slice(0, -1) : withLeadingSlash;
+}
+
+function buildApiPath(basePath: string, endpoint: string): string {
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+  if (!basePath) {
+    return `/${cleanEndpoint}`;
+  }
+  return `${basePath}/${cleanEndpoint}`;
+}
 
 /**
  * Get API base URL from environment variable
  * Defaults to localhost:8080 for development
  */
 function getApiBaseUrl(): string {
+  const configuredUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
   if (typeof window === 'undefined') {
-    // Server-side: use environment variable or default
-    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+    return normalizeBaseUrl(configuredUrl || 'http://localhost:8080');
   }
-  // Client-side: use environment variable or default
-  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+
+  return normalizeBaseUrl(configuredUrl || 'http://localhost:8080');
 }
 
 /**
@@ -25,9 +52,11 @@ function getApiBaseUrl(): string {
  * Defaults to /api/v1 for standard API versioning
  */
 function getApiBasePath(): string {
-  const basePath = process.env.NEXT_PUBLIC_API_BASE_PATH || '/api/v1';
-  // Ensure it starts with / and doesn't end with /
-  return basePath.startsWith('/') ? basePath : `/${basePath}`;
+  const configuredPath = process.env.NEXT_PUBLIC_API_BASE_PATH;
+  if (typeof configuredPath === 'undefined') {
+    return '/api/v1';
+  }
+  return normalizeBasePath(configuredPath);
 }
 
 /**
@@ -56,6 +85,96 @@ interface ApiRequestOptions extends RequestInit {
   locale?: string;
 }
 
+async function executeRequest(
+  url: string,
+  fetchOptions: RequestInit,
+  headers: Record<string, string>
+): Promise<Response> {
+  return fetch(url, {
+    ...fetchOptions,
+    headers: headers as HeadersInit,
+  });
+}
+
+function buildUnauthorizedResponse<T>(code: string, message: string): ApiResponse<T> {
+  return {
+    success: false,
+    error: {
+      code,
+      message,
+      message_en: message,
+    },
+    timestamp: new Date().toISOString(),
+    request_id: `req_${Date.now()}`,
+  };
+}
+
+async function refreshAccessToken(baseUrl: string, basePath: string, locale: string): Promise<boolean> {
+  const refreshToken = tokenStorage.getRefreshToken();
+  if (!refreshToken) {
+    return false;
+  }
+
+  const refreshPath = buildApiPath(basePath, REFRESH_ENDPOINT);
+  const refreshUrl = `${baseUrl}${refreshPath}`;
+
+  const response = await executeRequest(
+    refreshUrl,
+    {
+      method: 'POST',
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    },
+    {
+      'Content-Type': 'application/json',
+      'X-Locale': locale,
+      'Accept-Language': locale,
+    }
+  );
+
+  if (!response.ok) {
+    return false;
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    return false;
+  }
+
+  const payload = (await response.json()) as ApiResponse<TokenData>;
+  if (!payload.success || !payload.data) {
+    return false;
+  }
+
+  tokenStorage.setAccessToken(payload.data.access_token, payload.data.expires_in);
+  tokenStorage.setRefreshToken(payload.data.refresh_token);
+  return true;
+}
+
+async function refreshAccessTokenSingleFlight(baseUrl: string, basePath: string, locale: string): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const refreshed = await refreshAccessToken(baseUrl, basePath, locale);
+        if (!refreshed) {
+          tokenStorage.clear();
+        }
+        return refreshed;
+      } catch {
+        tokenStorage.clear();
+        return false;
+      }
+    })().finally(() => {
+      refreshPromise = null;
+    });
+  }
+
+  return refreshPromise;
+}
+
+function isRefreshEndpoint(cleanEndpoint: string): boolean {
+  return cleanEndpoint === REFRESH_ENDPOINT || cleanEndpoint.endsWith(`/${REFRESH_ENDPOINT}`);
+}
+
 /**
  * Make API request with standard error handling
  */
@@ -66,9 +185,8 @@ async function apiRequest<T>(
   const baseUrl = getApiBaseUrl();
   const basePath = getApiBasePath();
   
-  // Remove leading slash from endpoint if present, then combine with basePath
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-  const fullPath = `${basePath}/${cleanEndpoint}`;
+  const fullPath = buildApiPath(basePath, cleanEndpoint);
   const url = `${baseUrl}${fullPath}`;
   
   const { requireAuth = false, locale, ...fetchOptions } = options;
@@ -104,17 +222,49 @@ async function apiRequest<T>(
   
   // Add authorization header if required (default to true for most API calls)
   if (requireAuth !== false) {
-    const accessToken = tokenStorage.getAccessToken();
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
+    if (tokenStorage.isTokenExpired()) {
+      const refreshed = await refreshAccessTokenSingleFlight(baseUrl, basePath, currentLocale);
+      if (!refreshed) {
+        return buildUnauthorizedResponse<T>('TOKEN_EXPIRED', 'Session expired, please login again');
+      }
     }
+
+    const accessToken = tokenStorage.getAccessToken();
+    if (!accessToken) {
+      return buildUnauthorizedResponse<T>('TOKEN_MISSING', 'Authentication token is missing');
+    }
+
+    headers['Authorization'] = `Bearer ${accessToken}`;
   }
   
   try {
-    const response = await fetch(url, {
-      ...fetchOptions,
-      headers: headers as HeadersInit,
-    });
+    let response = await executeRequest(url, fetchOptions, headers);
+
+    if (response.status === 401 && requireAuth !== false && !isRefreshEndpoint(cleanEndpoint)) {
+      const refreshed = await refreshAccessTokenSingleFlight(baseUrl, basePath, currentLocale);
+      if (!refreshed) {
+        return buildUnauthorizedResponse<T>('TOKEN_EXPIRED', 'Session expired, please login again');
+      }
+
+      const refreshedAccessToken = tokenStorage.getAccessToken();
+      if (!refreshedAccessToken) {
+        return buildUnauthorizedResponse<T>('TOKEN_MISSING', 'Authentication token is missing');
+      }
+
+      headers['Authorization'] = `Bearer ${refreshedAccessToken}`;
+      response = await executeRequest(url, fetchOptions, headers);
+    }
+
+    const requestId = response.headers.get('x-request-id') || `req_${Date.now()}`;
+
+    // Some endpoints (e.g. void actions) intentionally return 204 with no response body.
+    if (response.status === 204) {
+      return {
+        success: true,
+        timestamp: new Date().toISOString(),
+        request_id: requestId,
+      };
+    }
     
     // Check if response has content
     const contentType = response.headers.get('content-type');
@@ -122,6 +272,38 @@ async function apiRequest<T>(
     
     if (contentType && contentType.includes('application/json')) {
       data = await response.json() as ApiResponse<T>;
+      // Handle non-2xx status codes
+      if (!response.ok) {
+        // If response has error structure, return it
+        if (data.error) {
+          return data;
+        }
+
+        // Otherwise, create a generic error response
+        const error: ApiError = {
+          code: `HTTP_${response.status}`,
+          message: response.statusText || 'An error occurred',
+          message_en: response.statusText || 'An error occurred',
+        };
+
+        return {
+          success: false,
+          error,
+          timestamp: new Date().toISOString(),
+          request_id: requestId,
+        };
+      }
+
+      return data;
+    }
+
+    // For successful non-JSON responses, treat as success (empty data payload).
+    if (response.ok) {
+      return {
+        success: true,
+        timestamp: new Date().toISOString(),
+        request_id: requestId,
+      };
     } else {
       // If response is not JSON, create error response
       const text = await response.text();
@@ -135,33 +317,9 @@ async function apiRequest<T>(
         success: false,
         error,
         timestamp: new Date().toISOString(),
-        request_id: `req_${Date.now()}`,
+        request_id: requestId,
       };
     }
-    
-    // Handle non-2xx status codes
-    if (!response.ok) {
-      // If response has error structure, return it
-      if (data.error) {
-        return data;
-      }
-      
-      // Otherwise, create a generic error response
-      const error: ApiError = {
-        code: `HTTP_${response.status}`,
-        message: response.statusText || 'An error occurred',
-        message_en: response.statusText || 'An error occurred',
-      };
-      
-      return {
-        success: false,
-        error,
-        timestamp: new Date().toISOString(),
-        request_id: `req_${Date.now()}`,
-      };
-    }
-    
-    return data;
   } catch (error) {
     // Handle network errors
     const apiError: ApiError = {
@@ -186,7 +344,7 @@ export async function login(
   credentials: LoginRequest
 ): Promise<LoginResponse> {
   const response = await apiRequest<LoginResponseData>(
-    '/api/v1/auth/login',
+    'auth/login',
     {
       method: 'POST',
       body: JSON.stringify(credentials),

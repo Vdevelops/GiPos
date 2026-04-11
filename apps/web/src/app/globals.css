@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-/* Import theme files - modular approach */
 @import "../styles/themes/candy.css";
 @import "../styles/themes/blue.css";
 @import "../styles/themes/sand.css";
@@ -9,7 +8,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Theme Variables */
 @theme inline {
   --color-border: var(--border);
   --color-input: var(--input);
@@ -83,9 +81,24 @@
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
   --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: var(--font-manrope), "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "Consolas", monospace;
+  --font-serif: "Iowan Old Style", "Times New Roman", serif;
+
+  --spacing: var(--space-unit);
+  --tracking-normal: var(--letter-spacing-base);
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+  --color-shadow-color: var(--shadow-color);
 }
 
-/* Border color compatibility for Tailwind v4 */
 @layer base {
   *,
   ::after,
@@ -95,54 +108,174 @@
     border-color: var(--color-gray-200, currentcolor);
   }
   body {
-    letter-spacing: var(--tracking-normal);
+    letter-spacing: var(--letter-spacing-base);
   }
 }
 
-/* ============================================
-   SHARED VARIABLES - Applied to all themes
-   ============================================ */
-
-/* Shared shadow and tracking variables for all themes */
 :root {
   --shadow-color: hsl(0 0% 0%);
-  --shadow-opacity: 0.1;
-  --shadow-blur: 8px;
-  --shadow-spread: -2px;
+  --shadow-opacity: 0.12;
+  --shadow-blur: 22px;
+  --shadow-spread: -12px;
   --shadow-offset-x: 0px;
-  --shadow-offset-y: 4px;
-  --letter-spacing: 0em;
-  --spacing: 0.25rem;
-  --shadow-2xs: 0px 4px 8px -2px hsl(0 0% 0% / 0.05);
-  --shadow-xs: 0px 4px 8px -2px hsl(0 0% 0% / 0.05);
-  --shadow-sm: 0px 4px 8px -2px hsl(0 0% 0% / 0.10), 0px 1px 2px -3px hsl(0 0% 0% / 0.10);
-  --shadow: 0px 4px 8px -2px hsl(0 0% 0% / 0.10), 0px 1px 2px -3px hsl(0 0% 0% / 0.10);
-  --shadow-md: 0px 4px 8px -2px hsl(0 0% 0% / 0.10), 0px 2px 4px -3px hsl(0 0% 0% / 0.10);
-  --shadow-lg: 0px 4px 8px -2px hsl(0 0% 0% / 0.10), 0px 4px 6px -3px hsl(0 0% 0% / 0.10);
-  --shadow-xl: 0px 4px 8px -2px hsl(0 0% 0% / 0.10), 0px 8px 10px -3px hsl(0 0% 0% / 0.10);
-  --shadow-2xl: 0px 4px 8px -2px hsl(0 0% 0% / 0.25);
-  --tracking-normal: 0em;
+  --shadow-offset-y: 10px;
+  --letter-spacing-base: 0.01em;
+  --space-unit: 0.25rem;
+
+  --shadow-2xs: 0 2px 4px -2px hsl(0 0% 0% / 0.08);
+  --shadow-xs: 0 4px 10px -8px hsl(0 0% 0% / 0.16);
+  --shadow-sm: 0 10px 24px -18px hsl(0 0% 0% / 0.18);
+  --shadow: 0 14px 32px -22px hsl(0 0% 0% / 0.22);
+  --shadow-md: 0 24px 46px -30px hsl(0 0% 0% / 0.24);
+  --shadow-lg: 0 34px 56px -34px hsl(0 0% 0% / 0.28);
+  --shadow-xl: 0 40px 64px -36px hsl(0 0% 0% / 0.32);
+  --shadow-2xl: 0 46px 74px -38px hsl(0 0% 0% / 0.38);
+
+  --radius: 0.9rem;
 }
 
-/* Theme definitions are now in separate modular files:
-   - candy.css
-   - blue.css
-   - sand.css
-   - black.css
-*/
+:root.high-contrast {
+  --border: color-mix(in oklab, var(--foreground) 34%, var(--background));
+  --input: color-mix(in oklab, var(--foreground) 24%, var(--background));
+  --ring: color-mix(in oklab, var(--foreground) 75%, var(--primary));
+  --muted-foreground: color-mix(in oklab, var(--foreground) 74%, var(--background));
+  --shadow-opacity: 0.24;
+}
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border/70 outline-ring/60;
   }
-  html, body {
-    /* REMOVED overflow-x: hidden to allow sticky positioning to work */
-    background-color: var(--sidebar) !important;
+
+  html,
+  body {
+    min-height: 100%;
+    max-width: 100vw;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--background);
+    background-image:
+      radial-gradient(circle at 95% -10%, color-mix(in oklab, var(--primary) 14%, transparent) 0%, transparent 36%),
+      radial-gradient(circle at -5% 10%, color-mix(in oklab, var(--accent) 10%, transparent) 0%, transparent 34%),
+      linear-gradient(180deg, color-mix(in oklab, var(--background) 94%, var(--sidebar) 6%) 0%, var(--background) 70%);
     color: var(--foreground);
-    max-width: 100vw; /* Prevent horizontal scroll without breaking sticky */
+    text-rendering: geometricPrecision;
   }
+
+  h1 {
+    @apply text-3xl leading-tight font-semibold tracking-tight md:text-4xl;
+  }
+
+  h2 {
+    @apply text-2xl leading-tight font-semibold;
+  }
+
+  h3 {
+    @apply text-xl leading-snug font-semibold;
+  }
+
+  p {
+    @apply leading-relaxed;
+  }
+
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    transition:
+      color 180ms ease,
+      background-color 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      transform 180ms ease;
+  }
+
+  :focus-visible {
+    outline: none;
+  }
+
+  :root.high-contrast :focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  html {
+    font-size: 15px;
+  }
+
+  [data-slot="card"] {
+    gap: 1.1rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  [data-slot="card-header"],
+  [data-slot="card-content"],
+  [data-slot="card-footer"] {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  [data-slot="button"] {
+    min-height: 2.3rem;
+    font-size: 0.8125rem;
+  }
+
+  [data-slot="input"],
+  [data-slot="select-trigger"],
+  [data-slot="textarea"] {
+    min-height: 2.3rem;
+    font-size: 0.8125rem;
+  }
+
+  [data-slot="tabs-trigger"] {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  [data-slot="table"] {
+    font-size: 0.8125rem;
+  }
+
+  [data-slot="table-head"] {
+    height: 2rem;
+    padding-left: 0.375rem;
+    padding-right: 0.375rem;
+  }
+
+  [data-slot="table-cell"] {
+    padding: 0.375rem;
+  }
+
+  [data-slot="dialog-content"] {
+    max-width: min(700px, calc(100% - 2rem));
+    padding: 1.1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  [data-slot="card"] {
+    border-radius: calc(var(--radius) + 2px);
+  }
+
+  [data-slot="card-header"],
+  [data-slot="card-content"],
+  [data-slot="card-footer"] {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  [data-slot="dialog-content"] {
+    border-radius: calc(var(--radius) + 4px);
+    padding: 1.05rem;
   }
 }

@@ -5,6 +5,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:kiosk:web": "pnpm --filter web kiosk:local",
     "lint": "turbo run lint",
     "start": "turbo run start",
     "type-check": "turbo run type-check"

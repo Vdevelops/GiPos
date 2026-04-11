@@ -2,13 +2,11 @@ package dto
 
 // ProcessPaymentRequest represents the request to process a payment
 type ProcessPaymentRequest struct {
-	SaleID        string  `json:"sale_id" binding:"required"`
-	Method        string  `json:"method" binding:"required,oneof=cash qris e_wallet transfer card"`
-	Amount        int64   `json:"amount" binding:"required,min=1"`
-	CashReceived  *int64  `json:"cash_received,omitempty"` // For cash payment
-	EWalletType   *string `json:"e_wallet_type,omitempty"` // gopay, ovo, shopee_pay, dana
-	BankName      *string `json:"bank_name,omitempty"`      // For transfer payment
-	AccountNumber *string `json:"account_number,omitempty"` // For transfer payment
+	SaleID       string `json:"sale_id" binding:"required"`
+	Method       string `json:"method" binding:"required,oneof=cash qris"`
+	Amount       int64  `json:"amount" binding:"required,min=1"`
+	AmountPaid   *int64 `json:"amount_paid,omitempty"`   // For cash payment
+	CashReceived *int64 `json:"cash_received,omitempty"` // Backward-compatible alias for amount_paid
 }
 
 // UpdatePaymentRequest represents the request to update payment status
@@ -26,6 +24,7 @@ type PaymentResponse struct {
 	SaleID         string  `json:"sale_id"`
 	Method         string  `json:"method"`
 	Amount         int64   `json:"amount"`
+	Change         *int64  `json:"change,omitempty"`
 	Status         string  `json:"status"`
 	Gateway        string  `json:"gateway,omitempty"`
 	GatewayID      *string `json:"gateway_id,omitempty"`

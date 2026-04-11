@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strings"
+
 	"gipos/api/internal/auth/domain/dto"
 	"gipos/api/internal/auth/domain/usecase"
 	"gipos/api/internal/core/utils/errors"
@@ -33,6 +35,22 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	if strings.TrimSpace(req.Identifier) == "" {
+		req.Identifier = strings.TrimSpace(req.Email)
+	}
+
+	if strings.TrimSpace(req.Identifier) == "" {
+		errors.ValidationError(c, []response.FieldError{
+			{
+				Field:     "identifier",
+				Code:      "REQUIRED",
+				Message:   "Email atau username wajib diisi",
+				MessageEn: "Email or username is required",
+			},
+		})
+		return
+	}
+
 	// Get tenant_id from context (optional for login - can be determined from user)
 	// For login, we can search by email only, tenant_id will be extracted from user
 	tenantID := ""
@@ -52,7 +70,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if loginResponse.User.OutletID != nil {
 		meta.OutletID = *loginResponse.User.OutletID
 	}
-	
+
 	response.Success(c, loginResponse, meta)
 }
 
@@ -70,7 +88,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if tid, exists := c.Get("tenant_id"); exists {
 		tenantID = tid.(string)
 	}
-	
+
 	// If tenant_id is not in context, we need to determine it
 	// For MVP, we can create a default tenant or require it in request
 	// For now, we'll require it in context or return error

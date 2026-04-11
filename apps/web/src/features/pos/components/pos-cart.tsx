@@ -1,7 +1,7 @@
 'use client';
 
-import { Plus, Minus, Trash2 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Minus, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/currency';
 import type { Product } from '@/features/products/types';
@@ -15,75 +15,74 @@ interface POSCartProps {
   readonly items: CartItem[];
   readonly onUpdateQuantity: (productId: string, delta: number) => void;
   readonly onRemove: (productId: string) => void;
+  readonly isLocked?: boolean;
 }
 
-export function POSCart({ items, onUpdateQuantity, onRemove }: POSCartProps) {
+export function POSCart({ items, onUpdateQuantity, onRemove, isLocked = false }: POSCartProps) {
+  const t = useTranslations('pos');
+
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <p className="text-muted-foreground">Cart is empty</p>
-        <p className="text-sm text-muted-foreground mt-2">
-          Add products to get started
-        </p>
+      <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+        <p className="text-sm text-muted-foreground md:text-base">{t('cartEmpty')}</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="divide-y">
       {items.map((item) => {
         const product = item.product;
         const unitPrice = product?.price ?? 0;
         const itemTotal = unitPrice * item.quantity;
 
         return (
-          <Card key={product?.id ?? 'unknown'}>
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-sm truncate">
-                    {product?.name ?? 'Unknown Product'}
-                  </h4>
-                  <p className="text-sm text-muted-foreground">
-                    {formatCurrency(unitPrice)}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 flex-shrink-0"
-                  onClick={() => onRemove(product?.id ?? '')}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+          <div key={product?.id ?? 'unknown'} className="py-2.5 first:pt-0">
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <h4 className="truncate text-sm font-medium md:text-base">
+                  {product?.name ?? 'Unknown Product'}
+                </h4>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onUpdateQuantity(product?.id ?? '', -1)}
-                    disabled={item.quantity <= 1}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="w-12 text-center font-medium">
-                    {item.quantity}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onUpdateQuantity(product?.id ?? '', 1)}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="font-semibold">{formatCurrency(itemTotal)}</p>
-              </div>
-            </CardContent>
-          </Card>
+
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="h-7 w-7"
+                onClick={() => onUpdateQuantity(product?.id ?? '', -1)}
+                disabled={isLocked || item.quantity <= 1}
+                aria-label={`Kurangi qty ${product?.name ?? 'product'}`}
+              >
+                <Minus className="h-3.5 w-3.5" />
+              </Button>
+
+              <span className="min-w-8 text-center text-sm font-medium md:text-base">{item.quantity}</span>
+
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="h-7 w-7"
+                onClick={() => onUpdateQuantity(product?.id ?? '', 1)}
+                disabled={isLocked}
+                aria-label={`Tambah qty ${product?.name ?? 'product'}`}
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+
+              <p className="ml-auto text-sm font-semibold md:text-base">{formatCurrency(itemTotal)}</p>
+
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="h-7 w-7 text-destructive hover:text-destructive"
+                onClick={() => onRemove(product?.id ?? '')}
+                disabled={isLocked}
+                aria-label={`Hapus ${product?.name ?? 'product'} dari cart`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
         );
       })}
     </div>

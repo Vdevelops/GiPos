@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProduct } from '../hooks/use-products';
 import { formatCurrency } from '@/lib/currency';
+import { resolveAssetUrl } from '@/lib/asset-url';
 import type { Product } from '../types';
 
 interface ProductDetailProps {
@@ -29,6 +30,7 @@ export function ProductDetail({
   const { data: productData, isLoading } = useProduct(productId);
 
   const product = productData?.data;
+  const imageUrl = resolveAssetUrl(product?.images?.[0]?.url);
 
   if (!open || !productId) {
     return null;
@@ -59,10 +61,10 @@ export function ProductDetail({
           <div className="space-y-6">
             {/* Product Image */}
             <div className="aspect-video bg-muted rounded-lg flex items-center justify-center overflow-hidden">
-              {product?.images?.[0]?.url ? (
+              {imageUrl ? (
                 <img
-                  src={product.images[0].url}
-                  alt={product.images[0]?.alt ?? product?.name ?? 'Product'}
+                  src={imageUrl}
+                  alt={product?.images?.[0]?.alt ?? product?.name ?? 'Product'}
                   className="w-full h-full object-cover"
                 />
               ) : (

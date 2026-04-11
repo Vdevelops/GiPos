@@ -1,8 +1,12 @@
 package models
 
 import (
+	"encoding/json"
+	"strings"
 	"time"
 	"gipos/api/internal/core/shared/models"
+
+	"gorm.io/gorm"
 )
 
 // PaymentMethod represents payment method types
@@ -59,6 +63,39 @@ type Payment struct {
 	
 	// Relations
 	Sale           *Sale      `gorm:"foreignKey:SaleID" json:"sale,omitempty"`
+}
+
+func (p *Payment) normalizeGatewayResponse() {
+	trimmed := strings.TrimSpace(p.GatewayResponse)
+	if trimmed == "" {
+		p.GatewayResponse = "{}"
+		return
+	}
+
+	if json.Valid([]byte(trimmed)) {
+		p.GatewayResponse = trimmed
+		return
+	}
+
+	// Fallback to a valid JSON string to avoid jsonb insert errors.
+	encoded, err := json.Marshal(trimmed)
+	if err != nil {
+		p.GatewayResponse = "{}"
+		return
+	}
+	p.GatewayResponse = string(encoded)
+}
+
+// BeforeCreate ensures jsonb fields are valid before insert.
+func (p *Payment) BeforeCreate(_ *gorm.DB) error {
+	p.normalizeGatewayResponse()
+	return nil
+}
+
+// BeforeUpdate ensures jsonb fields are valid before update.
+func (p *Payment) BeforeUpdate(_ *gorm.DB) error {
+	p.normalizeGatewayResponse()
+	return nil
 }
 
 // TableName specifies the table name

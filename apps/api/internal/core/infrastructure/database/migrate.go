@@ -9,6 +9,7 @@ import (
 	categoryModels "gipos/api/internal/master-data/category_product/data/models"
 	outletModels "gipos/api/internal/master-data/outlet/data/models"
 	productModels "gipos/api/internal/master-data/products/data/models"
+	reportModels "gipos/api/internal/reports/data/models"
 	warehouseModels "gipos/api/internal/master-data/warehouse/data/models"
 	salesModels "gipos/api/internal/sales/data/models"
 	stockModels "gipos/api/internal/stock/data/models"
@@ -50,6 +51,11 @@ func AllModels() []interface{} {
 		&salesModels.Sale{},
 		&salesModels.SaleItem{},
 		&salesModels.Payment{},
+
+		// Reports & Analytics Aggregation Read Models
+		&reportModels.DailySummary{},
+		&reportModels.DailyTopProduct{},
+		&reportModels.DailyPaymentMethod{},
 	}
 }
 
@@ -109,6 +115,22 @@ func AutoMigrate() error {
 	if err := DB.AutoMigrate(models...); err != nil {
 		log.Printf("❌ Migration failed: %v", err)
 		return err
+	}
+
+	criticalIndexes := []string{
+		"CREATE INDEX IF NOT EXISTS idx_sales_tenant_created_at ON sales (tenant_id, created_at DESC)",
+		"CREATE INDEX IF NOT EXISTS idx_sale_items_tenant_product ON sale_items (tenant_id, product_id)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_tenant_sale_unique ON payments (tenant_id, sale_id) WHERE deleted_at IS NULL",
+		"CREATE INDEX IF NOT EXISTS idx_report_daily_summaries_lookup ON report_daily_summaries (tenant_id, report_date, outlet_id)",
+		"CREATE INDEX IF NOT EXISTS idx_report_daily_top_products_lookup ON report_daily_top_products (tenant_id, report_date, outlet_id, product_id, category_id)",
+		"CREATE INDEX IF NOT EXISTS idx_report_daily_payment_methods_lookup ON report_daily_payment_methods (tenant_id, report_date, outlet_id, payment_method)",
+	}
+
+	for _, stmt := range criticalIndexes {
+		if err := DB.Exec(stmt).Error; err != nil {
+			log.Printf("❌ Failed to ensure critical index: %v", err)
+			return err
+		}
 	}
 
 	log.Println("✅ Database migrations completed successfully")

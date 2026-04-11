@@ -22,9 +22,17 @@ func NewProductStockHandler(stockUsecase *usecase.ProductStockUsecase) *ProductS
 	}
 }
 
+func getStockProductIDParam(c *gin.Context) string {
+	productID := c.Param("product_id")
+	if productID == "" {
+		productID = c.Param("id")
+	}
+	return productID
+}
+
 // CreateProductStock handles POST /api/v1/products/:product_id/stocks
 func (h *ProductStockHandler) CreateProductStock(c *gin.Context) {
-	productID := c.Param("product_id")
+	productID := getStockProductIDParam(c)
 
 	var req dto.ProductStockRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -82,7 +90,7 @@ func (h *ProductStockHandler) GetProductStock(c *gin.Context) {
 
 // GetProductStocks handles GET /api/v1/products/:product_id/stocks
 func (h *ProductStockHandler) GetProductStocks(c *gin.Context) {
-	productID := c.Param("product_id")
+	productID := getStockProductIDParam(c)
 
 	tenantID, exists := c.Get("tenant_id")
 	if !exists {
@@ -119,7 +127,13 @@ func (h *ProductStockHandler) UpdateProductStock(c *gin.Context) {
 		return
 	}
 
-	stockResponse, err := h.stockUsecase.UpdateProductStock(tenantID.(string), id, &req)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		errors.Unauthorized(c, "User ID is required")
+		return
+	}
+
+	stockResponse, err := h.stockUsecase.UpdateProductStock(tenantID.(string), id, &req, userID.(string))
 	if err != nil {
 		errorCode := err.Error()
 		errors.Error(c, errorCode, nil, nil)
@@ -153,7 +167,7 @@ func (h *ProductStockHandler) DeleteProductStock(c *gin.Context) {
 
 // BulkCreateProductStocks handles POST /api/v1/products/:product_id/stocks/bulk
 func (h *ProductStockHandler) BulkCreateProductStocks(c *gin.Context) {
-	productID := c.Param("product_id")
+	productID := getStockProductIDParam(c)
 
 	var req dto.BulkProductStockRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -189,7 +203,7 @@ func (h *ProductStockHandler) BulkCreateProductStocks(c *gin.Context) {
 
 // GetProductTotalStock handles GET /api/v1/products/:product_id/stocks/total
 func (h *ProductStockHandler) GetProductTotalStock(c *gin.Context) {
-	productID := c.Param("product_id")
+	productID := getStockProductIDParam(c)
 
 	tenantID, exists := c.Get("tenant_id")
 	if !exists {

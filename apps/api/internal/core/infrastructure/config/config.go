@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -140,8 +141,8 @@ func Load() (*Config, error) {
 		},
 		JWT: JWTConfig{
 			Secret:             getEnv("JWT_SECRET", "change-me-in-production"),
-			AccessTokenExpiry:  parseDuration(getEnv("JWT_ACCESS_TOKEN_EXPIRY", "24h")),
-			RefreshTokenExpiry: parseDuration(getEnv("JWT_REFRESH_TOKEN_EXPIRY", "7d")),
+			AccessTokenExpiry:  parseDurationWithDefault(getEnv("JWT_ACCESS_TOKEN_EXPIRY", "15h"), 15*time.Hour),
+			RefreshTokenExpiry: parseDurationWithDefault(getEnv("JWT_REFRESH_TOKEN_EXPIRY", "15h"), 15*time.Hour),
 		},
 		CORS: CORSConfig{
 			AllowedOrigins: parseStringSlice(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")),
@@ -155,7 +156,7 @@ func Load() (*Config, error) {
 		},
 		Upload: UploadConfig{
 			MaxSize: int64(parseInt(getEnv("MAX_UPLOAD_SIZE", "10485760"))), // 10MB default
-			Path:    getEnv("UPLOAD_PATH", "./uploads"),
+			Path:    resolveUploadPath(getEnv("UPLOAD_PATH", "./uploads")),
 		},
 		Storage: StorageConfig{
 			Type:            getEnv("STORAGE_TYPE", "local"),
@@ -220,9 +221,27 @@ func parseInt(s string) int {
 }
 
 func parseDuration(s string) time.Duration {
-	d, err := time.ParseDuration(s)
+	return parseDurationWithDefault(s, 15*time.Second)
+}
+
+func parseDurationWithDefault(s string, fallback time.Duration) time.Duration {
+	normalized := strings.TrimSpace(strings.ToLower(s))
+	if normalized == "" {
+		return fallback
+	}
+
+	if strings.HasSuffix(normalized, "d") {
+		daysPart := strings.TrimSuffix(normalized, "d")
+		days, err := strconv.Atoi(daysPart)
+		if err != nil || days <= 0 {
+			return fallback
+		}
+		return time.Duration(days) * 24 * time.Hour
+	}
+
+	d, err := time.ParseDuration(normalized)
 	if err != nil {
-		return 15 * time.Second
+		return fallback
 	}
 	return d
 }
@@ -241,4 +260,37 @@ func parseStringSlice(s string) []string {
 		}
 	}
 	return result
+}
+
+func resolveUploadPath(rawPath string) string {
+	trimmed := strings.TrimSpace(rawPath)
+	if trimmed == "" {
+		trimmed = "./uploads"
+	}
+
+	if filepath.IsAbs(trimmed) {
+		return filepath.Clean(trimmed)
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return filepath.Clean(trimmed)
+	}
+
+	baseDir := cwd
+	if fileExists(filepath.Join(cwd, "go.mod")) {
+		baseDir = cwd
+	} else if fileExists(filepath.Join(cwd, "apps", "api", "go.mod")) {
+		baseDir = filepath.Join(cwd, "apps", "api")
+	}
+
+	return filepath.Clean(filepath.Join(baseDir, trimmed))
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
 }

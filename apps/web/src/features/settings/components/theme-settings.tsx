@@ -10,11 +10,11 @@ import { useThemeStore } from "@/stores/theme-store"
 import { cn } from "@/lib/utils"
 
 const themeVariants = [
-  { id: 'candy', colors: ['#E91E63', '#F06292', '#F48FB1', '#F8BBD0'], preview: '/theme-previews/candy.svg' },
-  { id: 'blue', colors: ['#dccf52', '#dcc094', '#2c586e', '#8da1af', '#bad0eb', '#2b676d'], preview: '/theme-previews/blue.svg' },
-  { id: 'sand', colors: ['#FF9800', '#FFB74D', '#FFCC80', '#FFE0B2'], preview: '/theme-previews/sand.svg' },
-  { id: 'black', colors: ['#000000', '#212121', '#424242', '#616161'], preview: '/theme-previews/black.svg' },
-  { id: 'green', colors: ['#1a1a2e', '#0d2818', '#2d5016', '#9caf88', '#f5f5f0'], preview: '/theme-previews/green.svg' },
+  { id: 'candy', colors: ['#ca5a3e', '#f4d9c9', '#f3b06a', '#4e6fdb'], preview: '/theme-previews/candy.svg' },
+  { id: 'blue', colors: ['#4d68d6', '#dfe6ff', '#6f9de2', '#3f6ec6'], preview: '/theme-previews/blue.svg' },
+  { id: 'sand', colors: ['#d9a450', '#f5e6bf', '#d4c37d', '#6f8ed8'], preview: '/theme-previews/sand.svg' },
+  { id: 'black', colors: ['#2f3f59', '#dde4f2', '#6d80a5', '#518f7b'], preview: '/theme-previews/black.svg' },
+  { id: 'green', colors: ['#2f9a7d', '#d8efe8', '#6eb6a6', '#5f77d6'], preview: '/theme-previews/green.svg' },
 ] as const
 
 export function ThemeSettings() {

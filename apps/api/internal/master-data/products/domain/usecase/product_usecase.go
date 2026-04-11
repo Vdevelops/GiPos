@@ -486,6 +486,27 @@ func toProductResponse(product *productModels.Product) *dto.ProductResponse {
 		}
 	}
 
+	// Include images if loaded
+	if len(product.Images) > 0 {
+		resp.Images = make([]dto.ProductImageResponse, len(product.Images))
+		for i, image := range product.Images {
+			resp.Images[i] = dto.ProductImageResponse{
+				ID:           uintToString(image.ID),
+				ProductID:    uintToString(image.ProductID),
+				URL:          image.URL,
+				ThumbnailURL: image.ThumbnailURL,
+				Order:        image.Order,
+				Alt:          image.Alt,
+				Size:         getInt64Ptr(image.Size),
+				Width:        getIntPtr(image.Width),
+				Height:       getIntPtr(image.Height),
+				MimeType:     image.MimeType,
+				CreatedAt:    image.CreatedAt.Format("2006-01-02T15:04:05+07:00"),
+				UpdatedAt:    image.UpdatedAt.Format("2006-01-02T15:04:05+07:00"),
+			}
+		}
+	}
+
 	return resp
 }
 

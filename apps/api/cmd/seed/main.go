@@ -48,10 +48,12 @@ func main() {
 	log.Println("========================================")
 	log.Println("")
 	log.Println("📝 Default credentials:")
-	log.Println("   - admin@gipos.id / password123 (System Admin)")
+	log.Println("   - admin@gipos.id / admin (System Admin)")
+	log.Println("   - admin / admin (alias login)")
 	log.Println("   - owner@gipos.id / password123 (Tenant Owner)")
 	log.Println("   - manager@gipos.id / password123 (Manager)")
 	log.Println("   - cashier@gipos.id / password123 (Cashier)")
+	log.Println("   - cashier / (kosong) (alias login tanpa password)")
 	log.Println("")
 }
 
