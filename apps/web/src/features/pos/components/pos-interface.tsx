@@ -6,6 +6,7 @@ import { ArrowLeft, Search, ShoppingCart, Wallet } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { usePOS } from '../hooks/use-pos';
@@ -106,24 +107,65 @@ export function POSInterface() {
 
   const renderCartPanel = (options?: {
     className?: string;
+    withCheckoutInset?: boolean;
   }) => (
     <div className={cn('flex h-full min-h-0 flex-col bg-background', options?.className)}>
       <div className="border-b p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <ShoppingCart className="h-5 w-5" />
-          <h2 className="text-lg font-semibold">{t('cart')}</h2>
-          <Badge variant="secondary">
-            {itemCount} {t('item')}
-          </Badge>
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t('total')}
+            </p>
+            <h2 className="text-2xl font-bold leading-tight md:text-3xl">
+              {formatCurrency(totals.total)}
+            </h2>
+            <div className="mt-1 flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+              <Badge variant="secondary">
+                {itemCount} {t('item')}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="flex w-full items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 sm:w-auto sm:shrink-0 sm:justify-start">
+            <p className="text-xs font-semibold text-muted-foreground md:text-sm whitespace-nowrap">
+              {t('discountToggle')}
+            </p>
+            <Switch
+              checked={isWednesdayDiscountEnabled}
+              onCheckedChange={updateWednesdayDiscountEnabled}
+              disabled={isProcessing || hasPendingSale}
+              aria-label={t('discountToggle')}
+              className="h-6 w-12 md:h-7 md:w-14"
+            />
+          </div>
         </div>
+
+        {isWednesdayDiscountAvailable && (
+          <p className="mb-1 text-xs text-muted-foreground">
+            {t('wednesdayDiscountAutoOn')}
+          </p>
+        )}
+
+        {totals.hasDiscountEligibleItems && (
+          <p className="text-xs text-muted-foreground">{t('discountPackageExcluded')}</p>
+        )}
+
         {hasPendingSale && (
-          <p className="text-xs text-muted-foreground">
-            Payment retry mode for invoice {pendingSale?.invoiceNumber ?? pendingSale?.id}
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t('pendingSaleCartNotice', {
+              reference: pendingSale?.invoiceNumber ?? pendingSale?.id ?? '-',
+            })}
           </p>
         )}
       </div>
 
-      <div className="min-h-[12rem] flex-1 overflow-y-auto p-4">
+      <div
+        className={cn(
+          'min-h-[12rem] flex-1 overflow-y-auto p-4',
+          options?.withCheckoutInset ? 'pb-28 lg:pb-24' : undefined
+        )}
+      >
         <POSCart
           items={cart}
           onUpdateQuantity={updateQuantity}
@@ -136,7 +178,7 @@ export function POSInterface() {
 
   return (
     <>
-      <div className="grid h-[calc(100dvh-4rem)] min-h-0 grid-cols-1 overflow-hidden md:grid-cols-[minmax(0,1fr)_minmax(16rem,34%)] lg:grid-cols-[minmax(0,1fr)_minmax(18rem,32%)] xl:grid-cols-[minmax(0,1fr)_minmax(20rem,30%)] 2xl:grid-cols-[minmax(0,1fr)_minmax(22rem,28%)]">
+      <div className="grid h-[calc(100dvh-4rem)] min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(18rem,32%)] xl:grid-cols-[minmax(0,1fr)_minmax(20rem,30%)] 2xl:grid-cols-[minmax(0,1fr)_minmax(22rem,28%)]">
         <div className="flex min-w-0 min-h-0 flex-col overflow-hidden p-3 sm:p-4 lg:p-5">
           <div className="mb-3 shrink-0 sm:mb-4">
             <div className="relative">
@@ -177,7 +219,7 @@ export function POSInterface() {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1 pb-20 md:pb-0">
+          <div className="min-h-0 flex-1 overflow-y-auto pb-20 pr-1 lg:pb-0">
             <POSProductGrid
               products={filteredProducts}
               isLoading={isLoadingProducts}
@@ -187,19 +229,19 @@ export function POSInterface() {
           </div>
         </div>
 
-        <aside className="hidden min-h-0 border-l bg-background md:sticky md:top-0 md:h-[calc(100dvh-4rem)] md:flex-col md:flex">
-          {renderCartPanel()}
+        <aside className="hidden min-h-0 border-l bg-background lg:sticky lg:top-0 lg:h-[calc(100dvh-4rem)] lg:flex-col lg:flex">
+          {renderCartPanel({ withCheckoutInset: true })}
         </aside>
       </div>
 
-      {itemCount > 0 && (
+      {itemCount > 0 && !isMobileCartOpen && (
         <Button
           type="button"
-          className="fixed right-4 bottom-20 z-40 h-11 rounded-full px-4 text-sm font-semibold shadow-lg md:bottom-4 md:h-12 md:px-5 md:text-base"
+          className="fixed right-4 bottom-20 z-40 h-11 rounded-full px-4 text-sm font-semibold shadow-lg sm:bottom-24 lg:bottom-4 lg:h-12 lg:px-5 lg:text-base"
           onClick={() => setIsPaymentModalOpen(true)}
           disabled={isProcessing}
         >
-          <Wallet className="mr-2 h-4 w-4 md:h-5 md:w-5" />
+          <Wallet className="mr-2 h-4 w-4 lg:h-5 lg:w-5" />
           Lanjutkan Pembayaran
         </Button>
       )}
@@ -207,7 +249,7 @@ export function POSInterface() {
       <Button
         type="button"
         size="lg"
-        className="fixed right-4 bottom-4 z-40 h-14 rounded-full px-5 shadow-lg md:hidden"
+        className="fixed right-4 bottom-4 z-40 h-14 rounded-full px-5 shadow-lg lg:hidden"
         onClick={() => setIsMobileCartOpen(true)}
       >
         <ShoppingCart className="mr-2 h-5 w-5" />
@@ -216,8 +258,8 @@ export function POSInterface() {
       </Button>
 
       <Sheet open={isMobileCartOpen} onOpenChange={setIsMobileCartOpen}>
-        <SheetContent side="bottom" className="h-[88dvh] rounded-t-2xl p-0 md:hidden">
-          {renderCartPanel({ className: 'border-0' })}
+        <SheetContent side="bottom" className="h-[88dvh] rounded-t-2xl p-0 lg:hidden">
+          {renderCartPanel({ className: 'border-0', withCheckoutInset: true })}
         </SheetContent>
       </Sheet>
 
@@ -245,6 +287,7 @@ export function POSInterface() {
             isDiscountEnabled={isWednesdayDiscountEnabled}
             onDiscountEnabledChange={updateWednesdayDiscountEnabled}
             isDiscountToggleDisabled={isProcessing || hasPendingSale}
+            hasDiscountEligibleItems={totals.hasDiscountEligibleItems}
             total={totals.total}
             itemCount={itemCount}
             isLoading={isProcessing}

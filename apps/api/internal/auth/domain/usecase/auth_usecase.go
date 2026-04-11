@@ -3,6 +3,7 @@ package usecase
 import (
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"gipos/api/internal/auth/data/models"
@@ -132,16 +133,47 @@ func (uc *AuthUsecase) Login(tenantID string, req *dto.LoginRequest) (*dto.Login
 	var user *models.User
 	var err error
 
+	identifier := strings.TrimSpace(req.Identifier)
+	if identifier == "" {
+		identifier = strings.TrimSpace(req.Email)
+	}
+
+	if identifier == "" {
+		return nil, errors.New("INVALID_CREDENTIALS")
+	}
+
+	normalizedIdentifier := strings.ToLower(identifier)
+	providedPassword := strings.TrimSpace(req.Password)
+
+	adminAlias := normalizedIdentifier == "admin"
+	cashierAlias := normalizedIdentifier == "kasir" || normalizedIdentifier == "cashier"
+
+	adminEmail := "admin@gipos.id"
+	cashierEmail := "cashier@gipos.id"
+
 	// If tenantID is provided, search within that tenant
 	if tenantID != "" {
 		tenantIDUint, err := stringToUint(tenantID)
 		if err != nil {
 			return nil, errors.New("INVALID_TENANT_ID")
 		}
-		user, err = uc.userRepo.GetByEmailAndTenant(req.Email, tenantIDUint)
+
+		if adminAlias {
+			user, err = uc.userRepo.GetByEmailAndTenant(adminEmail, tenantIDUint)
+		} else if cashierAlias {
+			user, err = uc.userRepo.GetByEmailAndTenant(cashierEmail, tenantIDUint)
+		} else {
+			user, err = uc.userRepo.GetByIdentifierAndTenant(identifier, tenantIDUint)
+		}
 	} else {
-		// Otherwise, search by email only (for login, user might not know tenant)
-		user, err = uc.userRepo.GetByEmail(req.Email)
+		if adminAlias {
+			user, err = uc.userRepo.GetByEmail(adminEmail)
+		} else if cashierAlias {
+			user, err = uc.userRepo.GetByEmail(cashierEmail)
+		} else {
+			// Otherwise, search by identifier (email or username-like prefix)
+			user, err = uc.userRepo.GetByIdentifier(identifier)
+		}
 	}
 
 	if err != nil {
@@ -156,9 +188,20 @@ func (uc *AuthUsecase) Login(tenantID string, req *dto.LoginRequest) (*dto.Login
 		return nil, errors.New("ACCOUNT_DISABLED")
 	}
 
-	// Verify password
-	if !CheckPasswordHash(req.Password, user.Password) {
-		return nil, errors.New("INVALID_CREDENTIALS")
+	// Verify password.
+	// Special cases requested:
+	// 1) username admin with password admin
+	// 2) cashier can login without password
+	if adminAlias {
+		if providedPassword != "admin" {
+			return nil, errors.New("INVALID_CREDENTIALS")
+		}
+	} else if user.Role == "cashier" && providedPassword == "" {
+		// Allow empty password for cashier.
+	} else {
+		if providedPassword == "" || !CheckPasswordHash(providedPassword, user.Password) {
+			return nil, errors.New("INVALID_CREDENTIALS")
+		}
 	}
 
 	// Update last login
@@ -275,7 +318,7 @@ func (uc *AuthUsecase) Register(tenantID string, req *dto.RegisterRequest) (*dto
 		Phone:     user.Phone,
 		Role:      user.Role,
 		Status:    user.Status,
-		OutletID: uintPtrToStringPtr(user.OutletID),
+		OutletID:  uintPtrToStringPtr(user.OutletID),
 		CreatedAt: response.FormatDateTime(user.CreatedAt),
 		UpdatedAt: response.FormatDateTime(user.UpdatedAt),
 	}

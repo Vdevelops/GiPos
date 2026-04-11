@@ -19,8 +19,10 @@ export default async function ProductsPage({
           { label: t('nav.products') },
         ]}
       />
-      <div className="flex flex-1 flex-col gap-4 p-4">
-        <ProductInventory />
+      <div className="flex flex-1 flex-col gap-4 p-3 sm:p-4 lg:p-5">
+        <div className="mx-auto w-full max-w-[96rem]">
+          <ProductInventory />
+        </div>
       </div>
     </>
   )

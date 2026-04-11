@@ -3,6 +3,7 @@
 import { Package } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/currency';
+import { resolveAssetUrl } from '@/lib/asset-url';
 import type { Product } from '@/features/products/types';
 
 interface POSProductGridProps {
@@ -20,7 +21,7 @@ export function POSProductGrid({
 }: POSProductGridProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 2xl:grid-cols-5">
         {Array.from({ length: 10 }).map((_, i) => (
           <div key={i} className="overflow-hidden rounded-xl border bg-card text-card-foreground">
             <Skeleton className="aspect-square w-full rounded-none" />
@@ -49,14 +50,11 @@ export function POSProductGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5">
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 2xl:grid-cols-5">
       {productList.map((product) => {
         const price = product?.price ?? 0;
-        const quantity = product?.stocks?.[0]?.quantity ?? 0;
-        const reserved = product?.stocks?.[0]?.reserved ?? 0;
-        const available = Math.max(0, quantity - reserved);
-        const isOutOfStock = available <= 0;
-        const isDisabled = isOutOfStock || isCheckoutLocked;
+        const isDisabled = isCheckoutLocked;
+        const imageUrl = resolveAssetUrl(product?.images?.[0]?.url);
 
         return (
           <div
@@ -71,10 +69,10 @@ export function POSProductGrid({
             }}
           >
             <div className="flex aspect-square w-full items-center justify-center overflow-hidden bg-muted">
-              {product?.images?.[0]?.url ? (
+              {imageUrl ? (
                 <img
-                  src={product.images[0].url}
-                  alt={product.images[0]?.alt ?? product?.name ?? 'Product'}
+                  src={imageUrl}
+                  alt={product?.images?.[0]?.alt ?? product?.name ?? 'Product'}
                   className="h-full w-full object-cover"
                 />
               ) : (

@@ -15,6 +15,31 @@ interface PendingSale {
   invoiceNumber?: string;
 }
 
+const WEDNESDAY_DISCOUNT_PERCENT = 20;
+
+function isPackageProduct(product: Product | undefined | null): boolean {
+  const categoryName = product?.category?.name?.trim().toLowerCase();
+  if (!categoryName) {
+    return false;
+  }
+
+  return categoryName.includes('paket');
+}
+
+function getItemSubtotal(item: CartItem): number {
+  const price = item.product?.price ?? 0;
+  const quantity = item.quantity ?? 0;
+  return price * quantity;
+}
+
+function getItemDiscountAmount(item: CartItem, discountPercent: number): number {
+  if (discountPercent <= 0 || isPackageProduct(item.product)) {
+    return 0;
+  }
+
+  return Math.floor(getItemSubtotal(item) * (discountPercent / 100));
+}
+
 /**
  * Hook for POS interface
  * Manages cart state and business logic
@@ -49,12 +74,6 @@ export function usePOS() {
   const createSaleMutation = useCreateSale();
   const processPaymentMutation = useProcessPayment();
 
-  const getProductAvailableStock = useCallback((product: Product | undefined | null) => {
-    const quantity = product?.stocks?.[0]?.quantity ?? 0;
-    const reserved = product?.stocks?.[0]?.reserved ?? 0;
-    return Math.max(0, quantity - reserved);
-  }, []);
-
   // Add product to cart
   const addToCart = useCallback((product: Product) => {
     setCart((prev) => {
@@ -65,16 +84,8 @@ export function usePOS() {
       const existingItem = prev.find(
         (item) => item.product?.id === product?.id
       );
-      const available = getProductAvailableStock(product);
-      if (available <= 0) {
-        return prev;
-      }
 
       if (existingItem) {
-        if ((existingItem.quantity ?? 0) >= available) {
-          return prev;
-        }
-
         return prev.map((item) =>
           item.product?.id === product?.id
             ? { ...item, quantity: (item.quantity ?? 0) + 1 }
@@ -84,7 +95,7 @@ export function usePOS() {
 
       return [...prev, { product, quantity: 1 }];
     });
-  }, [getProductAvailableStock, pendingSale]);
+  }, [pendingSale]);
 
   // Update quantity
   const updateQuantity = useCallback((productId: string, delta: number) => {
@@ -101,15 +112,7 @@ export function usePOS() {
             }
 
             const currentQty = item.quantity ?? 0;
-            const available = getProductAvailableStock(item.product);
             const nextQty = currentQty + delta;
-
-            if (delta > 0) {
-              return {
-                ...item,
-                quantity: Math.min(available, Math.max(0, nextQty)),
-              };
-            }
 
             return {
               ...item,
@@ -119,7 +122,7 @@ export function usePOS() {
           .filter((item) => (item.quantity ?? 0) > 0);
       }
     );
-  }, [getProductAvailableStock, pendingSale]);
+  }, [pendingSale]);
 
   // Remove from cart
   const removeFromCart = useCallback((productId: string) => {
@@ -137,25 +140,30 @@ export function usePOS() {
 
   // Calculate totals
   const totals = useMemo(() => {
-    const subtotal =
-      cart.reduce((sum, item) => {
-        const product = item.product;
-        const price = product?.price ?? 0;
-        const quantity = item.quantity ?? 0;
-        return sum + price * quantity;
-      }, 0) ?? 0;
+    const subtotal = cart.reduce((sum, item) => sum + getItemSubtotal(item), 0);
+    const discountPercent = isWednesdayDiscountEnabled ? WEDNESDAY_DISCOUNT_PERCENT : 0;
+    const discountEligibleSubtotal = cart.reduce((sum, item) => {
+      if (isPackageProduct(item.product)) {
+        return sum;
+      }
 
-    const discountPercent = isWednesdayDiscountEnabled ? 20 : 0;
-    const discountAmount = Math.round(subtotal * (discountPercent / 100));
+      return sum + getItemSubtotal(item);
+    }, 0);
+    const discountAmount = cart.reduce(
+      (sum, item) => sum + getItemDiscountAmount(item, discountPercent),
+      0
+    );
     const total = Math.max(0, subtotal - discountAmount);
 
     return {
       subtotal,
       discountPercent,
+      discountEligibleSubtotal,
+      hasDiscountEligibleItems: discountEligibleSubtotal > 0,
       discountAmount,
       total,
     };
-  }, [cart, isWednesdayDiscountAvailable, isWednesdayDiscountEnabled]);
+  }, [cart, isWednesdayDiscountEnabled]);
 
   const updateWednesdayDiscountEnabled = useCallback((enabled: boolean) => {
     if (pendingSale) {
@@ -187,32 +195,30 @@ export function usePOS() {
           throw new Error('Invalid outlet selected for checkout');
         }
 
-        if (!pendingSale) {
-          for (const item of cart) {
-            const available = getProductAvailableStock(item.product);
-            if ((item.quantity ?? 0) > available) {
-              throw new Error(`Insufficient stock for ${item.product?.name ?? 'product'}`);
-            }
-          }
-        }
-
         let saleId = pendingSale?.id;
         let saleTotal = pendingSale?.total ?? totals.total;
         let saleData = null;
 
         // Create sale once. If payment fails, keep pendingSale and retry payment using same sale_id.
         if (!saleId) {
+          const itemDiscountPercent = isWednesdayDiscountEnabled
+            ? WEDNESDAY_DISCOUNT_PERCENT
+            : 0;
+
           const saleItems = cart.map((item) => ({
             product_id: item.product?.id ?? '',
             quantity: item.quantity ?? 0,
             unit_price: item.product?.price ?? null,
+            discount_percent:
+              itemDiscountPercent > 0 && !isPackageProduct(item.product)
+                ? itemDiscountPercent
+                : undefined,
           }));
 
           const saleResponse = await createSaleMutation.mutateAsync({
             outlet_id: normalizedOutletId,
             shift_id: shiftId,
             items: saleItems,
-            discount_percent: totals.discountPercent > 0 ? totals.discountPercent : undefined,
             payment_method: paymentMethod,
           });
 
@@ -261,12 +267,11 @@ export function usePOS() {
     [
       cart,
       totals.total,
-      totals.discountPercent,
       createSaleMutation,
       processPaymentMutation,
       clearCart,
       pendingSale,
-      getProductAvailableStock,
+      isWednesdayDiscountEnabled,
     ]
   );
 

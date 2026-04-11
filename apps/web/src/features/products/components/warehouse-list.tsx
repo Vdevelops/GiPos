@@ -74,14 +74,14 @@ export function WarehouseList() {
   return (
     <>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">{t('warehousesTitle')}</h2>
             <p className="text-muted-foreground">
               {pagination?.total ?? 0} warehouse{pagination?.total !== 1 ? 's' : ''} found
             </p>
           </div>
-          <Button onClick={handleAddWarehouse}>
+          <Button onClick={handleAddWarehouse} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             {t('addWarehouse')}
           </Button>
@@ -118,14 +118,14 @@ export function WarehouseList() {
                 {warehouses.map((warehouse) => (
                   <div
                     key={warehouse?.id ?? 'unknown'}
-                    className="flex items-center justify-between rounded-lg border p-4"
+                    className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex min-w-0 items-start gap-4 sm:items-center">
                       <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                         <WarehouseIcon className="h-6 w-6 text-primary" />
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
                           <h3 className="font-semibold">{warehouse?.name ?? 'Unknown'}</h3>
                           {warehouse?.is_default && (
                             <Badge variant="default" className="text-xs">
@@ -150,7 +150,7 @@ export function WarehouseList() {
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" className="self-end sm:self-auto">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -174,7 +174,7 @@ export function WarehouseList() {
                 ))}
 
                 {pagination && pagination.total_pages > 1 && (
-                  <div className="flex items-center justify-between border-t pt-4">
+                  <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-muted-foreground">
                       Page {pagination.page} of {pagination.total_pages}
                     </p>

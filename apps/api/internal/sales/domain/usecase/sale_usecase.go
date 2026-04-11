@@ -13,7 +13,6 @@ import (
 	"gipos/api/internal/sales/data/models"
 	"gipos/api/internal/sales/data/repositories"
 	"gipos/api/internal/sales/domain/dto"
-	stockModels "gipos/api/internal/stock/data/models"
 	stockService "gipos/api/internal/stock/domain/service"
 
 	"gorm.io/gorm"
@@ -192,12 +191,11 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 		normalizedItems = append(normalizedItems, *aggregatedItemByProduct[productID])
 	}
 
-	// Process items and validate stock
+	// Process items
 	var saleItems []models.SaleItem
 	var subtotal int64 = 0
 	var totalDiscountAmount int64 = 0
 	var totalTaxAmount int64 = 0
-	trackStockByProduct := make(map[uint]bool)
 
 	for _, itemReq := range normalizedItems {
 		// Convert productID from string to uint
@@ -230,19 +228,6 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 		if itemReq.UnitPrice != nil && *itemReq.UnitPrice > 0 {
 			unitPrice = *itemReq.UnitPrice
 		}
-
-		// Check stock if product tracks stock
-		if product.TrackStock {
-			totalStock, err := uc.productStockRepo.GetTotalStock(tenantIDUint, productIDUint)
-			if err != nil {
-				return nil, errors.New("INTERNAL_SERVER_ERROR")
-			}
-			availableStock := totalStock
-			if availableStock < itemReq.Quantity {
-				return nil, errors.New("INSUFFICIENT_STOCK")
-			}
-		}
-		trackStockByProduct[productIDUint] = product.TrackStock
 
 		// Calculate item amounts
 		itemSubtotal := int64(itemReq.Quantity) * unitPrice
@@ -409,36 +394,12 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 			return errors.New("ITEMS_TOTAL_MISMATCH")
 		}
 
-		// Deduct stock for each item via centralized stock service.
-		movementDate := time.Now()
-		for _, item := range saleItems {
-			if !trackStockByProduct[item.ProductID] {
-				continue
-			}
-			idempotencyKey := fmt.Sprintf("sale:%d:item:%d:deduct", sale.ID, item.ID)
-
-			err := uc.stockService.ApplyStockChange(tx, stockService.ApplyStockChangeRequest{
-				TenantID:      tenantIDUint,
-				ProductID:     item.ProductID,
-				Delta:         -item.Quantity,
-				ReferenceType: stockModels.StockMovementRefSale,
-				ReferenceID:   &sale.ID,
-				IdempotencyKey: &idempotencyKey,
-				Notes:         "Stock deducted from sale",
-				MovementDate:  movementDate,
-				CreatedBy:     &cashierIDUint,
-			})
-			if err != nil {
-				return err
-			}
-		}
-
 		return nil
 	})
 
 	if err != nil {
 		switch err.Error() {
-		case "INSUFFICIENT_STOCK", "ITEMS_TOTAL_MISMATCH":
+		case "ITEMS_TOTAL_MISMATCH":
 			return nil, errors.New(err.Error())
 		default:
 			return nil, errors.New("INTERNAL_SERVER_ERROR")
@@ -534,7 +495,7 @@ func (uc *SaleUsecase) ListSales(tenantID string, outletID *string, shiftID *str
 }
 
 // VoidSale voids a sale (before payment)
-func (uc *SaleUsecase) VoidSale(tenantID, id string, userID string) error {
+func (uc *SaleUsecase) VoidSale(tenantID, id string, _ string) error {
 	tenantIDUint, err := stringToUint(tenantID)
 	if err != nil {
 		return errors.New("INVALID_TENANT_ID")
@@ -542,14 +503,6 @@ func (uc *SaleUsecase) VoidSale(tenantID, id string, userID string) error {
 	idUint, err := stringToUint(id)
 	if err != nil {
 		return errors.New("INVALID_SALE_ID")
-	}
-
-	var actorID *uint
-	if userID != "" {
-		parsedUserID, parseErr := stringToUint(userID)
-		if parseErr == nil {
-			actorID = &parsedUserID
-		}
 	}
 
 	sale, err := uc.saleRepo.GetByID(tenantIDUint, idUint)
@@ -569,7 +522,7 @@ func (uc *SaleUsecase) VoidSale(tenantID, id string, userID string) error {
 		return errors.New("VOID_NOT_ALLOWED")
 	}
 
-	// Void sale and restore stock
+	// Void sale
 	now := time.Now()
 	err = uc.db.Transaction(func(tx *gorm.DB) error {
 		// Update sale status
@@ -579,40 +532,10 @@ func (uc *SaleUsecase) VoidSale(tenantID, id string, userID string) error {
 			return err
 		}
 
-		// Restore stock for each item via centralized stock service.
-		movementDate := time.Now()
-		for _, item := range sale.Items {
-			product, err := uc.productRepo.GetByID(tenantIDUint, item.ProductID)
-			if err != nil {
-				continue
-			}
-
-			if product.TrackStock {
-				idempotencyKey := fmt.Sprintf("sale:%d:item:%d:void-restore", sale.ID, item.ID)
-				err := uc.stockService.ApplyStockChange(tx, stockService.ApplyStockChangeRequest{
-					TenantID:      tenantIDUint,
-					ProductID:     item.ProductID,
-					Delta:         item.Quantity,
-					ReferenceType: stockModels.StockMovementRefSale,
-					ReferenceID:   &sale.ID,
-					IdempotencyKey: &idempotencyKey,
-					Notes:         "Stock restored from voided sale",
-					MovementDate:  movementDate,
-					CreatedBy:     actorID,
-				})
-				if err != nil {
-					return err
-				}
-			}
-		}
-
 		return nil
 	})
 
 	if err != nil {
-		if err.Error() == "INSUFFICIENT_STOCK" {
-			return errors.New("INSUFFICIENT_STOCK")
-		}
 		return errors.New("INTERNAL_SERVER_ERROR")
 	}
 

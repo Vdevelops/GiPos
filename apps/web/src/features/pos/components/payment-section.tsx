@@ -20,6 +20,7 @@ interface PaymentSectionProps {
   readonly isDiscountEnabled?: boolean;
   readonly onDiscountEnabledChange?: (enabled: boolean) => void;
   readonly isDiscountToggleDisabled?: boolean;
+  readonly hasDiscountEligibleItems?: boolean;
   readonly total: number;
   readonly itemCount: number;
   readonly isLoading?: boolean;
@@ -39,6 +40,7 @@ export function PaymentSection({
   isDiscountEnabled = false,
   onDiscountEnabledChange,
   isDiscountToggleDisabled = false,
+  hasDiscountEligibleItems = false,
   total,
   itemCount,
   isLoading = false,
@@ -88,7 +90,28 @@ export function PaymentSection({
   return (
     <div className={cn('shrink-0 px-5 py-4 md:px-6 md:py-5', className)}>
       <div className="space-y-2 border-b pb-4">
-        <h3 className="text-xl font-bold tracking-tight md:text-2xl">{t('payment')}</h3>
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {t('total')}
+        </p>
+        <h3 className="text-2xl font-bold tracking-tight md:text-3xl">{formatCurrency(total)}</h3>
+        <div className="mt-2 flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2">
+          <p className="text-xs font-semibold text-muted-foreground md:text-sm whitespace-nowrap">
+            {t('discountToggle')}
+          </p>
+          <Switch
+            checked={isDiscountEnabled}
+            onCheckedChange={onDiscountEnabledChange}
+            disabled={isDiscountToggleDisabled}
+            aria-label={t('discountToggle')}
+            className="h-6 w-12 md:h-7 md:w-14"
+          />
+        </div>
+        {isDiscountAvailable && (
+          <p className="text-xs text-muted-foreground">{t('wednesdayDiscountAutoOn')}</p>
+        )}
+        {hasDiscountEligibleItems && (
+          <p className="text-xs text-muted-foreground">{t('discountPackageExcluded')}</p>
+        )}
         {hasPendingSale && (
           <p className="text-base leading-relaxed text-muted-foreground md:text-lg">
             {t('pendingSaleNotice', {
@@ -100,18 +123,6 @@ export function PaymentSection({
 
       <div className={cn('grid min-h-0 grid-cols-1 gap-10 pt-4 md:grid-cols-2 md:gap-x-10 lg:gap-x-10', contentClassName)}>
         <div className="space-y-4 md:pr-2">
-          <div className="flex items-center justify-between py-1.5">
-            <p className="text-base font-semibold md:text-lg">{t('wednesdayDiscount')}</p>
-            <Switch
-              checked={isDiscountEnabled}
-              onCheckedChange={onDiscountEnabledChange}
-              disabled={isDiscountToggleDisabled}
-              aria-label={t('wednesdayDiscount')}
-              className="h-7 w-14 border border-border data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/35 md:h-8 md:w-16"
-            />
-          </div>
-          <Separator />
-
           <div className="space-y-2">
             <div className="flex justify-between text-base md:text-lg">
               <span className="text-muted-foreground">{t('itemCount')}</span>
@@ -128,10 +139,6 @@ export function PaymentSection({
               </div>
             )}
             <Separator />
-            <div className="flex justify-between text-xl font-bold md:text-2xl">
-              <span>{t('total')}</span>
-              <span>{formatCurrency(total)}</span>
-            </div>
             {method === 'cash' && (
               <div className="flex justify-between text-sm md:text-base">
                 <span className="text-muted-foreground">{t('change')}</span>

@@ -14,7 +14,20 @@ import (
 const (
 	defaultTenantEmail = "admin@gipos.id"
 	legacyTenantEmail  = "admin@example.com"
+	adminEmail         = "admin@gipos.id"
+	ownerEmail         = "owner@gipos.id"
+	managerEmail       = "manager@gipos.id"
+	cashierEmail       = "cashier@gipos.id"
 )
+
+type seededUser struct {
+	Email    string
+	Password string
+	Name     string
+	Phone    string
+	Role     string
+	Status   string
+}
 
 // RunSeeders runs all auth seeders
 func RunSeeders(db *gorm.DB) {
@@ -69,66 +82,34 @@ func (s *UserSeeder) Seed() error {
 		log.Printf("✅ Using existing tenant: %d", tenant.ID)
 	}
 
-	// Check if users already exist for this tenant.
-	var count int64
-	s.db.Model(&models.User{}).Where("tenant_id = ?", tenant.ID).Count(&count)
-	if count > 0 {
-		log.Printf("⚠️  Users already exist for tenant %d, skipping seed", tenant.ID)
-		return nil
-	}
-
-	// Default password for all seeded users
-	defaultPassword := "admin123"
-	hashedPassword, err := usecase.HashPassword(defaultPassword)
-	if err != nil {
-		return err
-	}
-
-	// Seed users
-	users := []models.User{
+	users := []seededUser{
 		{
-			TenantModel: sharedModels.TenantModel{
-				BaseModel: sharedModels.BaseModel{},
-				TenantID:  tenant.ID,
-			},
-			Email:    "admin@gipos.id",
-			Password: hashedPassword,
+			Email:    adminEmail,
+			Password: "admin",
 			Name:     "System Admin",
 			Phone:    "081234567890",
 			Role:     "system_admin",
 			Status:   "active",
 		},
 		{
-			TenantModel: sharedModels.TenantModel{
-				BaseModel: sharedModels.BaseModel{},
-				TenantID:  tenant.ID,
-			},
-			Email:    "owner@gipos.id",
-			Password: hashedPassword,
+			Email:    ownerEmail,
+			Password: "password123",
 			Name:     "Tenant Owner",
 			Phone:    "081234567891",
 			Role:     "tenant_owner",
 			Status:   "active",
 		},
 		{
-			TenantModel: sharedModels.TenantModel{
-				BaseModel: sharedModels.BaseModel{},
-				TenantID:  tenant.ID,
-			},
-			Email:    "manager@gipos.id",
-			Password: hashedPassword,
+			Email:    managerEmail,
+			Password: "password123",
 			Name:     "Manager",
 			Phone:    "081234567892",
 			Role:     "manager",
 			Status:   "active",
 		},
 		{
-			TenantModel: sharedModels.TenantModel{
-				BaseModel: sharedModels.BaseModel{},
-				TenantID:  tenant.ID,
-			},
-			Email:    "cashier@gipos.id",
-			Password: hashedPassword,
+			Email:    cashierEmail,
+			Password: "password123",
 			Name:     "Cashier",
 			Phone:    "081234567893",
 			Role:     "cashier",
@@ -136,12 +117,44 @@ func (s *UserSeeder) Seed() error {
 		},
 	}
 
-	for i := range users {
-		if err := s.db.Create(&users[i]).Error; err != nil {
-			log.Printf("❌ Failed to create user %s: %v", users[i].Email, err)
+	for _, seeded := range users {
+		var existing models.User
+		err := s.db.Where("tenant_id = ? AND email = ?", tenant.ID, seeded.Email).First(&existing).Error
+		if err == nil {
+			log.Printf("↪️  User already exists, skip create: %s", seeded.Email)
 			continue
 		}
-		log.Printf("✅ Created user: %s (%s) - ID: %d", users[i].Email, users[i].Role, users[i].ID)
+
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Printf("❌ Failed checking user %s: %v", seeded.Email, err)
+			continue
+		}
+
+		hashedPassword, hashErr := usecase.HashPassword(seeded.Password)
+		if hashErr != nil {
+			log.Printf("❌ Failed hashing password for %s: %v", seeded.Email, hashErr)
+			continue
+		}
+
+		newUser := models.User{
+			TenantModel: sharedModels.TenantModel{
+				BaseModel: sharedModels.BaseModel{},
+				TenantID:  tenant.ID,
+			},
+			Email:    seeded.Email,
+			Password: hashedPassword,
+			Name:     seeded.Name,
+			Phone:    seeded.Phone,
+			Role:     seeded.Role,
+			Status:   seeded.Status,
+		}
+
+		if createErr := s.db.Create(&newUser).Error; createErr != nil {
+			log.Printf("❌ Failed to create user %s: %v", seeded.Email, createErr)
+			continue
+		}
+
+		log.Printf("✅ Created user: %s (%s) - ID: %d", newUser.Email, newUser.Role, newUser.ID)
 	}
 
 	log.Println("✅ User seeding completed")

@@ -2,9 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Activity,
-  AlertTriangle,
-  CheckCircle2,
   DollarSign,
   Eye,
   Package,
@@ -39,7 +36,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency } from "@/lib/currency";
 import {
-  useReportConsistencyCheck,
   useReportPaymentMethods,
   useReportProductSales,
   useReportSales,
@@ -59,7 +55,7 @@ import type {
 type DatePreset = "today" | "monthly" | "yearly" | "date_range";
 const TRANSACTION_PAGE_SIZE = 20;
 const PRODUCT_SALES_PAGE_SIZE = 20;
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
 function formatDateOnly(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -138,7 +134,7 @@ function formatXAxisLabel(period: string, range: ReportRange, preset: DatePreset
 }
 
 function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("en-US", {
+  return new Date(value).toLocaleString("id-ID", {
     year: "numeric",
     month: "short",
     day: "2-digit",
@@ -156,6 +152,23 @@ function statusBadgeVariant(status: string): "secondary" | "destructive" | "outl
     return "secondary";
   }
   return "outline";
+}
+
+function formatStatusLabel(status: string): string {
+  const normalized = status.toLowerCase();
+  if (normalized === "completed") return "Selesai";
+  if (normalized === "pending") return "Menunggu";
+  if (normalized === "failed") return "Gagal";
+  if (normalized === "cancelled") return "Dibatalkan";
+  if (normalized === "refunded") return "Dikembalikan";
+  return status;
+}
+
+function formatPaymentMethodLabel(method: string): string {
+  const normalized = method.toLowerCase();
+  if (normalized === "cash") return "Tunai";
+  if (normalized === "qris") return "QRIS";
+  return method.toUpperCase();
 }
 
 type LinePoint = {
@@ -297,7 +310,6 @@ export function ReportsAnalytics() {
   const topProductsQuery = useReportTopProducts(10, filterQuery);
   const productSalesQuery = useReportProductSales(productSalesQueryParams);
   const paymentMethodsQuery = useReportPaymentMethods(filterQuery);
-  const consistencyQuery = useReportConsistencyCheck(5, filterQuery);
   const transactionsQuery = useReportTransactions(transactionQuery);
   const transactionDetailQuery = useReportTransaction(detailOpen ? selectedTransactionID : null);
 
@@ -316,9 +328,6 @@ export function ReportsAnalytics() {
   const paymentMethods = paymentMethodsQuery.data?.success
     ? paymentMethodsQuery.data.data?.data ?? []
     : [];
-  const consistency = consistencyQuery.data?.success
-    ? consistencyQuery.data.data
-    : undefined;
   const transactions = transactionsQuery.data?.success
     ? transactionsQuery.data.data ?? []
     : [];
@@ -416,53 +425,61 @@ export function ReportsAnalytics() {
     (topProductsQuery.data && !topProductsQuery.data.success) ||
     (productSalesQuery.data && !productSalesQuery.data.success) ||
     (paymentMethodsQuery.data && !paymentMethodsQuery.data.success) ||
-    (consistencyQuery.data && !consistencyQuery.data.success) ||
     (transactionsQuery.data && !transactionsQuery.data.success);
 
-  const mismatchRate = useMemo(() => {
-    if (!consistency || consistency.total_checked <= 0) {
-      return 0;
-    }
-    return (consistency.total_mismatch / consistency.total_checked) * 100;
-  }, [consistency]);
+  const qrisRevenue = useMemo(
+    () =>
+      paymentMethods
+        .filter((item) => item.method.toLowerCase() === "qris")
+        .reduce((sum, item) => sum + item.total_revenue, 0),
+    [paymentMethods]
+  );
+
+  const cashRevenue = useMemo(
+    () =>
+      paymentMethods
+        .filter((item) => item.method.toLowerCase() === "cash")
+        .reduce((sum, item) => sum + item.total_revenue, 0),
+    [paymentMethods]
+  );
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Reports & Analytics</h1>
+          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Laporan & Analitik</h1>
           <p className="text-sm text-muted-foreground lg:text-base">
-            Near real-time insights from completed transactions
+            Wawasan hampir real-time dari transaksi yang sudah selesai
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap xl:w-auto xl:justify-end">
           <Select value={datePreset} onValueChange={handleDatePresetChange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Period" />
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Periode" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
-              <SelectItem value="yearly">Yearly</SelectItem>
-              <SelectItem value="date_range">Date Range</SelectItem>
+              <SelectItem value="today">Hari Ini</SelectItem>
+              <SelectItem value="monthly">Bulanan</SelectItem>
+              <SelectItem value="yearly">Tahunan</SelectItem>
+              <SelectItem value="date_range">Rentang Tanggal</SelectItem>
             </SelectContent>
           </Select>
 
           {datePreset === "date_range" && (
-            <div className="flex items-center gap-2 rounded-md border bg-background px-2 py-1.5">
+            <div className="flex flex-col gap-2 rounded-md border bg-background px-2 py-2 sm:flex-row sm:items-center sm:gap-2 sm:py-1.5">
               <input
                 type="date"
                 value={customStartDate}
                 onChange={(event) => handleStartDateChange(event.target.value)}
-                className="h-8 rounded border px-2 text-xs"
+                className="h-8 w-full rounded border px-2 text-xs sm:w-auto"
               />
-              <span className="text-xs text-muted-foreground">to</span>
+              <span className="text-xs text-muted-foreground">sampai</span>
               <input
                 type="date"
                 value={customEndDate}
                 onChange={(event) => handleEndDateChange(event.target.value)}
-                className="h-8 rounded border px-2 text-xs"
+                className="h-8 w-full rounded border px-2 text-xs sm:w-auto"
               />
             </div>
           )}
@@ -470,164 +487,122 @@ export function ReportsAnalytics() {
       </div>
 
       <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        Date Range: {dateRange.start} to {dateRange.end}
+        Rentang Tanggal: {dateRange.start} sampai {dateRange.end}
       </div>
 
       {hasError && (
         <Card className="border-destructive/40">
           <CardContent className="py-4 text-sm text-destructive">
-            Failed to load one or more report widgets. Please check API status and permissions.
+            Gagal memuat satu atau lebih widget laporan. Periksa status API dan izin akses.
           </CardContent>
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between text-sm font-medium">
-              Revenue
+              Pendapatan
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(summary?.total_revenue ?? 0)}</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Pembaruan terakhir: {summary?.last_updated_at ?? "-"}
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between text-sm font-medium">
-              Transactions
+              Transaksi
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{(summary?.total_transactions ?? 0).toLocaleString("en-US")}</div>
+            <div className="text-2xl font-bold">{(summary?.total_transactions ?? 0).toLocaleString("id-ID")}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between text-sm font-medium">
-              Items Sold
+              Item Terjual
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{(summary?.total_items_sold ?? 0).toLocaleString("en-US")}</div>
+            <div className="text-2xl font-bold">{(summary?.total_items_sold ?? 0).toLocaleString("id-ID")}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between text-sm font-medium">
-              AOV
-              <Activity className="h-4 w-4 text-muted-foreground" />
+              Pendapatan QRIS
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(summary?.average_order_value ?? 0)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Last update: {summary?.last_updated_at ?? "-"}
-            </p>
+            <div className="text-2xl font-bold">{formatCurrency(qrisRevenue)}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center justify-between text-sm font-medium">
+              Pendapatan Tunai
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(cashRevenue)}</div>
           </CardContent>
         </Card>
       </div>
 
-      <Card className={consistency && consistency.total_mismatch > 0 ? "border-destructive/50" : "border-emerald-500/40"}>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            {consistency && consistency.total_mismatch > 0 ? (
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            )}
-            Data Consistency Health
-          </CardTitle>
-          <CardDescription>
-            Reconciliation between sale header totals and sale items.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">Checked: {(consistency?.total_checked ?? 0).toLocaleString("en-US")}</Badge>
-            <Badge variant={consistency && consistency.total_mismatch > 0 ? "destructive" : "secondary"}>
-              Mismatch: {(consistency?.total_mismatch ?? 0).toLocaleString("en-US")}
-            </Badge>
-            <span className="text-xs text-muted-foreground">Rate: {mismatchRate.toFixed(2)}%</span>
-          </div>
-
-          {consistency && consistency.data.length > 0 && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Sale Total</TableHead>
-                  <TableHead>Items Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {consistency.data.map((issue) => (
-                  <TableRow key={issue.sale_id}>
-                    <TableCell>{issue.invoice_number || issue.sale_id}</TableCell>
-                    <TableCell>{new Date(issue.created_at).toLocaleString("en-US")}</TableCell>
-                    <TableCell>{formatCurrency(issue.sale_total)}</TableCell>
-                    <TableCell>{formatCurrency(issue.items_total)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-
-          {(!consistency || consistency.data.length === 0) && (
-            <p className="text-sm text-muted-foreground">
-              No mismatches found in selected period.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
       <Tabs defaultValue="sales" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="sales">Sales Trend</TabsTrigger>
-          <TabsTrigger value="products">Top Products</TabsTrigger>
-          <TabsTrigger value="product-sales">Product Sales</TabsTrigger>
-          <TabsTrigger value="payments">Payment Methods</TabsTrigger>
+        <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto p-1">
+          <TabsTrigger value="sales">Tren Penjualan</TabsTrigger>
+          <TabsTrigger value="products">Produk Terlaris</TabsTrigger>
+          <TabsTrigger value="product-sales">Penjualan Produk</TabsTrigger>
+          <TabsTrigger value="payments">Metode Pembayaran</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales">
           <Card className="mb-4">
             <CardHeader>
-              <CardTitle>Sales Over Time</CardTitle>
+              <CardTitle>Penjualan dari Waktu ke Waktu</CardTitle>
               <CardDescription>
-                {salesQuery.isFetching ? "Refreshing..." : "Latest data on page access"} | Range: {salesRange}
+                {salesQuery.isFetching ? "Memperbarui..." : "Data terbaru saat halaman dibuka"} | Rentang: {salesRange}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {salesData.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No sales data in selected period.</p>
+                <p className="text-sm text-muted-foreground">Belum ada data penjualan pada periode terpilih.</p>
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <span className="inline-block h-2 w-2 rounded-full bg-sky-500" />
-                      Total Sales
+                      Total Penjualan
                     </span>
                     <span className="flex items-center gap-1">
                       <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                      Transactions
+                      Transaksi
                     </span>
                   </div>
 
-                  <div className="rounded-md border p-3">
+                  <div className="w-full overflow-x-auto rounded-md border p-3">
                     <svg
                       width="100%"
                       height={salesLineChart.chartHeight}
                       viewBox={`0 0 ${salesLineChart.lineWidth} ${salesLineChart.chartHeight}`}
                       preserveAspectRatio="xMidYMid meet"
                       role="img"
-                      aria-label="Sales trend line chart"
+                      aria-label="Grafik garis tren penjualan"
                     >
                       <line
                         x1={salesLineChart.chartStartX}
@@ -719,7 +694,7 @@ export function ReportsAnalytics() {
                         fontSize="11"
                         fill="hsl(var(--muted-foreground))"
                       >
-                        X Axis (Period)
+                        Sumbu X (Periode)
                       </text>
                       <text
                         x="14"
@@ -729,7 +704,7 @@ export function ReportsAnalytics() {
                         fontSize="11"
                         fill="#0ea5e9"
                       >
-                        Y Axis (Total Sales)
+                        Sumbu Y (Total Penjualan)
                       </text>
                       <text
                         x={salesLineChart.lineWidth - 14}
@@ -739,7 +714,7 @@ export function ReportsAnalytics() {
                         fontSize="11"
                         fill="#22c55e"
                       >
-                        Y Axis (Transactions)
+                        Sumbu Y (Transaksi)
                       </text>
                     </svg>
                   </div>
@@ -750,69 +725,71 @@ export function ReportsAnalytics() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Transaction List</CardTitle>
+              <CardTitle>Daftar Transaksi</CardTitle>
               <CardDescription>
-                Every invoice in selected period with quick detail drilldown.
+                Semua invoice pada periode terpilih dengan akses detail cepat.
               </CardDescription>
             </CardHeader>
             <CardContent>
               {transactionsQuery.isLoading ? (
-                <p className="text-sm text-muted-foreground">Loading transactions...</p>
+                <p className="text-sm text-muted-foreground">Memuat data transaksi...</p>
               ) : transactions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No transactions in selected period.</p>
+                <p className="text-sm text-muted-foreground">Belum ada transaksi pada periode terpilih.</p>
               ) : (
                 <div className="space-y-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Invoice</TableHead>
-                        <TableHead>Date & Time</TableHead>
-                        <TableHead>Total Sales</TableHead>
-                        <TableHead>Payment</TableHead>
-                        <TableHead>Payment Status</TableHead>
-                        <TableHead>Sale Status</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {transactions.map((transaction) => (
-                        <TableRow key={transaction.id}>
-                          <TableCell className="font-medium">{transaction.invoice_number}</TableCell>
-                          <TableCell>{formatDateTime(transaction.created_at)}</TableCell>
-                          <TableCell>{formatCurrency(transaction.total)}</TableCell>
-                          <TableCell className="uppercase">{transaction.payment_method}</TableCell>
-                          <TableCell>
-                            <Badge variant={statusBadgeVariant(transaction.payment_status)} className="uppercase">
-                              {transaction.payment_status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={statusBadgeVariant(transaction.status)} className="uppercase">
-                              {transaction.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedTransactionID(transaction.id);
-                                setDetailOpen(true);
-                              }}
-                            >
-                              <Eye className="h-4 w-4" />
-                              Detail
-                            </Button>
-                          </TableCell>
+                  <div className="w-full overflow-x-auto">
+                    <Table className="min-w-[900px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Invoice</TableHead>
+                          <TableHead>Tanggal & Waktu</TableHead>
+                          <TableHead>Total Penjualan</TableHead>
+                          <TableHead>Metode Bayar</TableHead>
+                          <TableHead>Status Pembayaran</TableHead>
+                          <TableHead>Status Penjualan</TableHead>
+                          <TableHead className="text-right">Aksi</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {transactions.map((transaction) => (
+                          <TableRow key={transaction.id}>
+                            <TableCell className="font-medium">{transaction.invoice_number}</TableCell>
+                            <TableCell>{formatDateTime(transaction.created_at)}</TableCell>
+                            <TableCell>{formatCurrency(transaction.total)}</TableCell>
+                            <TableCell className="uppercase">{formatPaymentMethodLabel(transaction.payment_method)}</TableCell>
+                            <TableCell>
+                              <Badge variant={statusBadgeVariant(transaction.payment_status)} className="uppercase">
+                                {formatStatusLabel(transaction.payment_status)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={statusBadgeVariant(transaction.status)} className="uppercase">
+                                {formatStatusLabel(transaction.status)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedTransactionID(transaction.id);
+                                  setDetailOpen(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                                  Detail
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
 
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                     <div className="text-muted-foreground">
-                      Page {transactionPagination?.page ?? transactionPage} of {transactionPagination?.total_pages ?? 1}
-                       | Total {transactionPagination?.total ?? transactions.length} transactions
+                      Halaman {transactionPagination?.page ?? transactionPage} dari {transactionPagination?.total_pages ?? 1}
+                       | Total {transactionPagination?.total ?? transactions.length} transaksi
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -821,7 +798,7 @@ export function ReportsAnalytics() {
                         onClick={() => setTransactionPage((current) => Math.max(1, current - 1))}
                         disabled={!(transactionPagination?.has_prev ?? false)}
                       >
-                        Previous
+                        Sebelumnya
                       </Button>
                       <Button
                         variant="outline"
@@ -829,7 +806,7 @@ export function ReportsAnalytics() {
                         onClick={() => setTransactionPage((current) => current + 1)}
                         disabled={!(transactionPagination?.has_next ?? false)}
                       >
-                        Next
+                        Selanjutnya
                       </Button>
                     </div>
                   </div>
@@ -842,35 +819,37 @@ export function ReportsAnalytics() {
         <TabsContent value="products">
           <Card>
             <CardHeader>
-              <CardTitle>Top Selling Products</CardTitle>
-              <CardDescription>Top ranking by quantity sold and revenue</CardDescription>
+              <CardTitle>Produk Paling Laris</CardTitle>
+              <CardDescription>Peringkat teratas berdasarkan jumlah terjual dan pendapatan</CardDescription>
             </CardHeader>
             <CardContent>
               {topProducts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No product sales yet.</p>
+                <p className="text-sm text-muted-foreground">Belum ada data penjualan produk.</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>#</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Qty Sold</TableHead>
-                      <TableHead>Revenue</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {topProducts.map((product, index) => (
-                      <TableRow key={product.product_id}>
-                        <TableCell>#{index + 1}</TableCell>
-                        <TableCell>{product.product_name}</TableCell>
-                        <TableCell>{product.category_name || "-"}</TableCell>
-                        <TableCell>{product.quantity_sold.toLocaleString("en-US")}</TableCell>
-                        <TableCell>{formatCurrency(product.revenue)}</TableCell>
+                <div className="w-full overflow-x-auto">
+                  <Table className="min-w-[700px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>#</TableHead>
+                        <TableHead>Produk</TableHead>
+                        <TableHead>Kategori</TableHead>
+                        <TableHead>Qty Terjual</TableHead>
+                        <TableHead>Pendapatan</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {topProducts.map((product, index) => (
+                        <TableRow key={product.product_id}>
+                          <TableCell>#{index + 1}</TableCell>
+                          <TableCell>{product.product_name}</TableCell>
+                          <TableCell>{product.category_name || "-"}</TableCell>
+                          <TableCell>{product.quantity_sold.toLocaleString("id-ID")}</TableCell>
+                          <TableCell>{formatCurrency(product.revenue)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -879,17 +858,17 @@ export function ReportsAnalytics() {
         <TabsContent value="product-sales">
           <Card>
             <CardHeader>
-              <CardTitle>Product Sales Report</CardTitle>
+              <CardTitle>Laporan Penjualan Produk</CardTitle>
               <CardDescription>
-                Full product list including products with zero sales in selected period.
+                Daftar lengkap produk termasuk yang belum terjual pada periode terpilih.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 grid gap-2 md:grid-cols-[1fr_220px_180px]">
+              <div className="mb-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_220px_180px]">
                 <Input
                   value={productSalesSearch}
                   onChange={(event) => setProductSalesSearch(event.target.value)}
-                  placeholder="Search by product name or SKU"
+                  placeholder="Cari berdasarkan nama produk atau SKU"
                 />
 
                 <Select
@@ -897,14 +876,14 @@ export function ReportsAnalytics() {
                   onValueChange={(value) => setProductSalesSortBy(value as ProductSalesSortBy)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Sort by" />
+                    <SelectValue placeholder="Urutkan" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="quantity_sold">Sort: Quantity Sold</SelectItem>
-                    <SelectItem value="revenue">Sort: Revenue</SelectItem>
-                    <SelectItem value="product_name">Sort: Product Name</SelectItem>
-                    <SelectItem value="product_sku">Sort: SKU</SelectItem>
-                    <SelectItem value="product_status">Sort: Status</SelectItem>
+                    <SelectItem value="quantity_sold">Jumlah Terjual</SelectItem>
+                    <SelectItem value="revenue">Pendapatan</SelectItem>
+                    <SelectItem value="product_name">Nama Produk</SelectItem>
+                    <SelectItem value="product_sku">SKU</SelectItem>
+                    <SelectItem value="product_status">Status</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -913,55 +892,57 @@ export function ReportsAnalytics() {
                   onValueChange={(value) => setProductSalesSortOrder(value as "asc" | "desc")}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Order" />
+                    <SelectValue placeholder="Arah Urutan" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="desc">Order: Descending</SelectItem>
-                    <SelectItem value="asc">Order: Ascending</SelectItem>
+                    <SelectItem value="desc">Menurun</SelectItem>
+                    <SelectItem value="asc">Menaik</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {productSalesQuery.isLoading ? (
-                <p className="text-sm text-muted-foreground">Loading product sales report...</p>
+                <p className="text-sm text-muted-foreground">Memuat laporan penjualan produk...</p>
               ) : productSales.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No products found for selected filter.</p>
+                <p className="text-sm text-muted-foreground">Tidak ada produk untuk filter terpilih.</p>
               ) : (
                 <div className="space-y-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Product</TableHead>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Qty Sold</TableHead>
-                        <TableHead>Revenue</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {productSales.map((product) => (
-                        <TableRow key={product.product_id}>
-                          <TableCell className="font-medium">{product.product_name}</TableCell>
-                          <TableCell>{product.product_sku || "-"}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="uppercase">
-                              {product.product_status || "unknown"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{product.category_name || "-"}</TableCell>
-                          <TableCell>{product.quantity_sold.toLocaleString("en-US")}</TableCell>
-                          <TableCell>{formatCurrency(product.revenue)}</TableCell>
+                  <div className="w-full overflow-x-auto">
+                    <Table className="min-w-[820px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Produk</TableHead>
+                          <TableHead>SKU</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Kategori</TableHead>
+                          <TableHead>Qty Terjual</TableHead>
+                          <TableHead>Pendapatan</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {productSales.map((product) => (
+                          <TableRow key={product.product_id}>
+                            <TableCell className="font-medium">{product.product_name}</TableCell>
+                            <TableCell>{product.product_sku || "-"}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="uppercase">
+                                {product.product_status || "tidak diketahui"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{product.category_name || "-"}</TableCell>
+                            <TableCell>{product.quantity_sold.toLocaleString("id-ID")}</TableCell>
+                            <TableCell>{formatCurrency(product.revenue)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
 
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                     <div className="text-muted-foreground">
-                      Page {productSalesCurrentPage} of {productSalesTotalPages}
+                      Halaman {productSalesCurrentPage} dari {productSalesTotalPages}
                       {" | "}
-                      Total {productSalesTotal.toLocaleString("en-US")} products
+                      Total {productSalesTotal.toLocaleString("id-ID")} produk
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -970,7 +951,7 @@ export function ReportsAnalytics() {
                         onClick={() => setProductSalesPage((current) => Math.max(1, current - 1))}
                         disabled={!productSalesHasPrev}
                       >
-                        Previous
+                        Sebelumnya
                       </Button>
                       <Button
                         variant="outline"
@@ -978,7 +959,7 @@ export function ReportsAnalytics() {
                         onClick={() => setProductSalesPage((current) => current + 1)}
                         disabled={!productSalesHasNext}
                       >
-                        Next
+                        Selanjutnya
                       </Button>
                     </div>
                   </div>
@@ -991,14 +972,14 @@ export function ReportsAnalytics() {
         <TabsContent value="payments">
           <Card>
             <CardHeader>
-              <CardTitle>Payment Method Distribution</CardTitle>
-              <CardDescription>Revenue share by payment channel</CardDescription>
+              <CardTitle>Distribusi Metode Pembayaran</CardTitle>
+              <CardDescription>Kontribusi pendapatan per kanal pembayaran</CardDescription>
             </CardHeader>
             <CardContent>
               {paymentMethods.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No payment data available.</p>
+                <p className="text-sm text-muted-foreground">Belum ada data pembayaran.</p>
               ) : (
-                <div className="grid gap-5 lg:grid-cols-[200px_1fr]">
+                <div className="grid gap-5 xl:grid-cols-[200px_1fr]">
                   <div className="flex items-center justify-center">
                     <div
                       className="h-40 w-40 rounded-full border"
@@ -1011,13 +992,13 @@ export function ReportsAnalytics() {
                       <div key={item.method} className="rounded-md border p-3">
                         <div className="flex items-center justify-between">
                           <Badge variant="outline" className="uppercase">
-                            {item.method}
+                            {formatPaymentMethodLabel(item.method)}
                           </Badge>
                           <span className="text-sm font-semibold">{item.percentage.toFixed(1)}%</span>
                         </div>
                         <div className="mt-2 flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">
-                            {item.total_transactions.toLocaleString("en-US")} tx
+                            {item.total_transactions.toLocaleString("id-ID")} transaksi
                           </span>
                           <span className="font-medium">{formatCurrency(item.total_revenue)}</span>
                         </div>
@@ -1032,109 +1013,111 @@ export function ReportsAnalytics() {
       </Tabs>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl lg:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Transaction Detail</DialogTitle>
+            <DialogTitle>Detail Transaksi</DialogTitle>
             <DialogDescription>
-              Complete invoice detail including cart items and payment info.
+              Detail invoice lengkap termasuk item keranjang dan informasi pembayaran.
             </DialogDescription>
           </DialogHeader>
 
           {transactionDetailQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading transaction detail...</p>
+            <p className="text-sm text-muted-foreground">Memuat detail transaksi...</p>
           ) : !selectedTransaction ? (
-            <p className="text-sm text-muted-foreground">Transaction detail unavailable.</p>
+            <p className="text-sm text-muted-foreground">Detail transaksi tidak tersedia.</p>
           ) : (
             <div className="space-y-4">
               <div className="rounded-lg border p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="text-xs text-muted-foreground">Invoice Number</p>
+                    <p className="text-xs text-muted-foreground">Nomor Invoice</p>
                     <p className="text-lg font-semibold">{selectedTransaction.invoice_number}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={statusBadgeVariant(selectedTransaction.payment_status)} className="uppercase">
-                      Payment: {selectedTransaction.payment_status}
+                      Bayar: {formatStatusLabel(selectedTransaction.payment_status)}
                     </Badge>
                     <Badge variant={statusBadgeVariant(selectedTransaction.status)} className="uppercase">
-                      Sale: {selectedTransaction.status}
+                      Jual: {formatStatusLabel(selectedTransaction.status)}
                     </Badge>
                   </div>
                 </div>
 
                 <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                   <p className="text-muted-foreground">
-                    Invoice Date & Time: <span className="font-medium text-foreground">{formatDateTime(selectedTransaction.created_at)}</span>
+                    Tanggal & Waktu Invoice: <span className="font-medium text-foreground">{formatDateTime(selectedTransaction.created_at)}</span>
                   </p>
                   <p className="text-muted-foreground">
-                    Payment Method: <span className="font-medium uppercase text-foreground">{selectedTransaction.payment_method}</span>
+                    Metode Pembayaran: <span className="font-medium uppercase text-foreground">{formatPaymentMethodLabel(selectedTransaction.payment_method)}</span>
                   </p>
                   <p className="text-muted-foreground">
                     Outlet: <span className="font-medium text-foreground">{selectedTransaction.outlet?.name ?? "-"}</span>
                   </p>
                   <p className="text-muted-foreground">
-                    Cashier: <span className="font-medium text-foreground">{selectedTransaction.cashier?.name ?? "-"}</span>
+                    Kasir: <span className="font-medium text-foreground">{selectedTransaction.cashier?.name ?? "-"}</span>
                   </p>
                 </div>
               </div>
 
               <div className="rounded-lg border p-3">
-                <p className="mb-3 text-sm font-semibold">Cart Items</p>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Unit Price</TableHead>
-                      <TableHead>Discount</TableHead>
-                      <TableHead>Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(selectedTransaction.items ?? []).map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.product_name}</TableCell>
-                        <TableCell>{item.product_sku}</TableCell>
-                        <TableCell>{item.quantity}</TableCell>
-                        <TableCell>{formatCurrency(item.unit_price)}</TableCell>
-                        <TableCell>{formatCurrency(item.discount_amount)}</TableCell>
-                        <TableCell>{formatCurrency(item.total)}</TableCell>
+                <p className="mb-3 text-sm font-semibold">Item Keranjang</p>
+                <div className="w-full overflow-x-auto">
+                  <Table className="min-w-[760px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Produk</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead>Harga Satuan</TableHead>
+                        <TableHead>Diskon</TableHead>
+                        <TableHead>Total</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {(selectedTransaction.items ?? []).map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.product_name}</TableCell>
+                          <TableCell>{item.product_sku}</TableCell>
+                          <TableCell>{item.quantity}</TableCell>
+                          <TableCell>{formatCurrency(item.unit_price)}</TableCell>
+                          <TableCell>{formatCurrency(item.discount_amount)}</TableCell>
+                          <TableCell>{formatCurrency(item.total)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
 
                 <div className="mt-4 grid gap-1 text-sm sm:grid-cols-2">
                   <p className="text-muted-foreground">
                     Subtotal: <span className="font-medium text-foreground">{formatCurrency(selectedTransaction.subtotal)}</span>
                   </p>
                   <p className="text-muted-foreground">
-                    Discount: <span className="font-medium text-foreground">{formatCurrency(selectedTransaction.discount_amount)}</span>
+                    Diskon: <span className="font-medium text-foreground">{formatCurrency(selectedTransaction.discount_amount)}</span>
                   </p>
                   <p className="text-muted-foreground">
-                    Tax: <span className="font-medium text-foreground">{formatCurrency(selectedTransaction.tax_amount)}</span>
+                    Pajak: <span className="font-medium text-foreground">{formatCurrency(selectedTransaction.tax_amount)}</span>
                   </p>
                   <p className="text-muted-foreground">
-                    Total Sales: <span className="font-semibold text-foreground">{formatCurrency(selectedTransaction.total)}</span>
+                    Total Penjualan: <span className="font-semibold text-foreground">{formatCurrency(selectedTransaction.total)}</span>
                   </p>
                 </div>
               </div>
 
               <div className="rounded-lg border p-3 text-sm">
-                <p className="mb-3 font-semibold">Payment Detail</p>
+                <p className="mb-3 font-semibold">Detail Pembayaran</p>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <p className="text-muted-foreground">
-                    Method: <span className="font-medium uppercase text-foreground">{selectedTransaction.payment?.method ?? selectedTransaction.payment_method}</span>
+                    Metode: <span className="font-medium uppercase text-foreground">{formatPaymentMethodLabel(selectedTransaction.payment?.method ?? selectedTransaction.payment_method)}</span>
                   </p>
                   <p className="text-muted-foreground">
-                    Amount: <span className="font-medium text-foreground">{formatCurrency(selectedTransaction.payment?.amount ?? selectedTransaction.total)}</span>
+                    Jumlah: <span className="font-medium text-foreground">{formatCurrency(selectedTransaction.payment?.amount ?? selectedTransaction.total)}</span>
                   </p>
                   <p className="text-muted-foreground">
-                    Status: <span className="font-medium uppercase text-foreground">{selectedTransaction.payment?.status ?? selectedTransaction.payment_status}</span>
+                    Status: <span className="font-medium uppercase text-foreground">{formatStatusLabel(selectedTransaction.payment?.status ?? selectedTransaction.payment_status)}</span>
                   </p>
                   <p className="text-muted-foreground">
-                    Paid At: <span className="font-medium text-foreground">{selectedTransaction.payment?.paid_at ? formatDateTime(selectedTransaction.payment.paid_at) : "-"}</span>
+                    Dibayar Pada: <span className="font-medium text-foreground">{selectedTransaction.payment?.paid_at ? formatDateTime(selectedTransaction.payment.paid_at) : "-"}</span>
                   </p>
                 </div>
               </div>

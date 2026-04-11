@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"strings"
 	"time"
 
 	"gipos/api/internal/auth/data/models"
@@ -52,6 +53,52 @@ func (r *UserRepository) GetByEmailAndTenant(email string, tenantID uint) (*mode
 	return &user, nil
 }
 
+// GetByIdentifier retrieves user by email, email prefix (username), or exact name.
+func (r *UserRepository) GetByIdentifier(identifier string) (*models.User, error) {
+	var user models.User
+
+	normalized := strings.TrimSpace(strings.ToLower(identifier))
+	if normalized == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	err := r.db.
+		Where("LOWER(email) = ?", normalized).
+		Or("LOWER(email) LIKE ?", normalized+"@%").
+		Or("LOWER(name) = ?", normalized).
+		Order("id ASC").
+		First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// GetByIdentifierAndTenant retrieves user by identifier in a specific tenant.
+func (r *UserRepository) GetByIdentifierAndTenant(identifier string, tenantID uint) (*models.User, error) {
+	var user models.User
+
+	normalized := strings.TrimSpace(strings.ToLower(identifier))
+	if normalized == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	err := r.db.
+		Where("tenant_id = ?", tenantID).
+		Where(r.db.
+			Where("LOWER(email) = ?", normalized).
+			Or("LOWER(email) LIKE ?", normalized+"@%").
+			Or("LOWER(name) = ?", normalized)).
+		Order("id ASC").
+		First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 // Update updates a user
 func (r *UserRepository) Update(user *models.User) error {
 	return r.db.Save(user).Error
@@ -68,11 +115,11 @@ func (r *UserRepository) List(tenantID uint, outletID *uint, limit, offset int) 
 	var total int64
 
 	query := r.db.Model(&models.User{}).Where("tenant_id = ?", tenantID)
-	
+
 	if outletID != nil && *outletID > 0 {
 		query = query.Where("outlet_id = ?", *outletID)
 	}
-	
+
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}

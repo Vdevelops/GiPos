@@ -42,6 +42,7 @@ type ProductResponse struct {
 	Taxable     bool                      `json:"taxable"`
 	TrackStock  bool                      `json:"track_stock"`
 	Status      string                    `json:"status"`
+	Images      []ProductImageResponse    `json:"images,omitempty"`
 	Stocks      []ProductStockReference   `json:"stocks,omitempty"`
 	CreatedAt   string                    `json:"created_at"`
 	UpdatedAt   string                    `json:"updated_at"`

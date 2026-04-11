@@ -2,8 +2,9 @@ package dto
 
 // LoginRequest represents login request DTO
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
+	Identifier string `json:"identifier" binding:"omitempty"`
+	Email      string `json:"email" binding:"omitempty,email"`
+	Password   string `json:"password" binding:"omitempty"`
 }
 
 // RegisterRequest represents register request DTO

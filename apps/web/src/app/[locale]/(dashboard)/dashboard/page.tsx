@@ -19,8 +19,10 @@ export default async function DashboardPage({
           { label: t('dashboard.overview') },
         ]}
       />
-      <div className="flex flex-1 flex-col gap-4 p-4">
-        <DashboardOverview />
+      <div className="flex flex-1 flex-col gap-4 p-3 sm:p-4 lg:p-5">
+        <div className="mx-auto w-full max-w-7xl">
+          <DashboardOverview />
+        </div>
       </div>
     </>
   )

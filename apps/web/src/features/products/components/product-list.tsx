@@ -33,6 +33,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useProducts, useDeleteProduct } from '../hooks/use-products';
 import { useCategories } from '../hooks/use-categories';
 import { formatCurrency } from '@/lib/currency';
+import { resolveAssetUrl } from '@/lib/asset-url';
 import { useDebounce } from '@/hooks/use-debounce';
 import { DeleteDialog } from '@/components/delete-dialog';
 import type { Product } from '../types';
@@ -41,6 +42,20 @@ interface ProductListProps {
   readonly onAddProduct: () => void;
   readonly onEditProduct: (product: Product) => void;
   readonly onViewProduct: (product: Product) => void;
+}
+
+type ProductStatusFilter = 'all' | 'active' | 'inactive' | 'archived';
+
+function isProductStatusFilter(value: string): value is ProductStatusFilter {
+  return value === 'all' || value === 'active' || value === 'inactive' || value === 'archived';
+}
+
+function toQueryStatus(status: ProductStatusFilter): 'active' | 'inactive' | undefined {
+  if (status === 'active' || status === 'inactive') {
+    return status;
+  }
+
+  return undefined;
 }
 
 export function ProductList({
@@ -52,11 +67,15 @@ export function ProductList({
   const tCommon = useTranslations('common');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<ProductStatusFilter>('all');
   const [page, setPage] = useState(1);
   const perPage = 20;
 
   const debouncedSearch = useDebounce(searchQuery, 300);
+  const queryStatus = toQueryStatus(statusFilter);
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(isProductStatusFilter(value) ? value : 'all');
+  };
 
   // Fetch products
   const { data: productsData, isLoading } = useProducts({
@@ -64,7 +83,7 @@ export function ProductList({
     per_page: perPage,
     search: debouncedSearch || undefined,
     category_id: selectedCategory !== 'all' ? selectedCategory : undefined,
-    status: statusFilter !== 'all' ? (statusFilter as any) : undefined,
+    status: queryStatus,
   });
 
   // Fetch categories for filter
@@ -88,7 +107,7 @@ export function ProductList({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">{t('productList')}</h2>
           <p className="text-muted-foreground">
@@ -98,7 +117,7 @@ export function ProductList({
             {t('stockUpdateHint')}
           </p>
         </div>
-        <Button onClick={onAddProduct}>
+        <Button onClick={onAddProduct} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           {t('addProduct')}
         </Button>
@@ -110,8 +129,8 @@ export function ProductList({
           <CardTitle>{t('filterSearch')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
-            <div className="flex-1">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="w-full lg:flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -123,7 +142,7 @@ export function ProductList({
               </div>
             </div>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full lg:w-[180px]">
                 <SelectValue placeholder={t('category')} />
               </SelectTrigger>
               <SelectContent>
@@ -135,8 +154,8 @@ export function ProductList({
                 ))}
               </SelectContent>
             </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
+            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+              <SelectTrigger className="w-full lg:w-[180px]">
                 <SelectValue placeholder={t('status')} />
               </SelectTrigger>
               <SelectContent>
@@ -182,112 +201,115 @@ export function ProductList({
             </div>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('product')}</TableHead>
-                    <TableHead>{t('sku')}</TableHead>
-                    <TableHead>{t('category')}</TableHead>
-                    <TableHead>{t('price')}</TableHead>
-                    <TableHead>{t('stock')}</TableHead>
-                    <TableHead>{t('status')}</TableHead>
-                    <TableHead className="text-right">{t('actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {products.map((product) => {
-                    const stock = product?.stocks?.[0]?.quantity ?? 0;
-                    const category = product?.category?.name ?? '-';
-                    const status = product?.status ?? 'inactive';
+              <div className="w-full overflow-x-auto">
+                <Table className="min-w-[760px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('product')}</TableHead>
+                      <TableHead>{t('sku')}</TableHead>
+                      <TableHead>{t('category')}</TableHead>
+                      <TableHead>{t('price')}</TableHead>
+                      <TableHead>{t('stock')}</TableHead>
+                      <TableHead>{t('status')}</TableHead>
+                      <TableHead className="text-right">{t('actions')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {products.map((product) => {
+                      const stock = product?.stocks?.[0]?.quantity ?? 0;
+                      const category = product?.category?.name ?? '-';
+                      const status = product?.status ?? 'inactive';
+                      const imageUrl = resolveAssetUrl(product?.images?.[0]?.url);
 
-                    return (
-                      <TableRow key={product?.id ?? 'unknown'}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-                              {product?.images?.[0]?.url ? (
-                                <img
-                                  src={product.images[0].url}
-                                  alt={product.images[0]?.alt ?? product?.name ?? 'Product'}
-                                  className="h-full w-full object-cover rounded-md"
-                                />
-                              ) : (
-                                <Package className="h-5 w-5 text-muted-foreground" />
-                              )}
+                      return (
+                        <TableRow key={product?.id ?? 'unknown'}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                                {imageUrl ? (
+                                  <img
+                                    src={imageUrl}
+                                    alt={product?.images?.[0]?.alt ?? product?.name ?? 'Product'}
+                                    className="h-full w-full object-cover rounded-md"
+                                  />
+                                ) : (
+                                  <Package className="h-5 w-5 text-muted-foreground" />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-medium truncate">
+                                  {product?.name ?? 'Unknown Product'}
+                                </p>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <p className="font-medium truncate">
-                                {product?.name ?? 'Unknown Product'}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {product?.sku ?? '-'}
-                        </TableCell>
-                        <TableCell>{category}</TableCell>
-                        <TableCell>{formatCurrency(product?.price ?? 0)}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={stock === 0 ? 'destructive' : 'secondary'}
-                          >
-                            {stock}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              status === 'active'
-                                ? 'default'
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {product?.sku ?? '-'}
+                          </TableCell>
+                          <TableCell>{category}</TableCell>
+                          <TableCell>{formatCurrency(product?.price ?? 0)}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={stock === 0 ? 'destructive' : 'secondary'}
+                            >
+                              {stock}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                status === 'active'
+                                  ? 'default'
+                                  : status === 'archived'
+                                  ? 'secondary'
+                                  : 'outline'
+                              }
+                            >
+                              {status === 'active'
+                                ? t('active')
                                 : status === 'archived'
-                                ? 'secondary'
-                                : 'outline'
-                            }
-                          >
-                            {status === 'active'
-                              ? t('active')
-                              : status === 'archived'
-                              ? t('archived')
-                              : t('inactive')}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => onViewProduct(product)}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                {tCommon('view')}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => onEditProduct(product)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                {tCommon('edit')}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => setDeletingProduct(product)}
-                                disabled={deleteProductMutation.isPending}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                {tCommon('delete')}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                                ? t('archived')
+                                : t('inactive')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => onViewProduct(product)}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  {tCommon('view')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onEditProduct(product)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  {tCommon('edit')}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => setDeletingProduct(product)}
+                                  disabled={deleteProductMutation.isPending}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  {tCommon('delete')}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
 
               {/* Pagination */}
               {pagination && pagination.total_pages > 1 && (
-                <div className="flex items-center justify-between mt-4">
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-muted-foreground">
                     Page {pagination.page} of {pagination.total_pages}
                   </p>

@@ -35,7 +35,11 @@ import {
 import { useWarehouses } from '../hooks/use-warehouses';
 import { useUploadImage } from '../hooks/use-upload';
 import { useBulkCreateProductImages } from '../hooks/use-product-images';
+import { useProductImages } from '../hooks/use-product-images';
+import { ProductImageService } from '../services/product-image.service';
+import { UploadService } from '../services/upload.service';
 import { rupiahToSen, senToRupiah } from '@/lib/currency';
+import { resolveAssetUrl } from '@/lib/asset-url';
 import { toast } from '@/lib/toast';
 import type { Product } from '../types';
 
@@ -79,7 +83,9 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
     isLoading: isLoadingStockRows,
     isFetching: isFetchingStockRows,
   } = useProductStocks(product?.id ?? null);
+  const { data: existingImagesData } = useProductImages(product?.id ?? null);
   const productStocks = stocksData?.data ?? [];
+  const existingImages = existingImagesData?.data ?? product?.images ?? [];
   const primaryStock = productStocks[0];
 
   const { data: warehousesData } = useWarehouses({
@@ -126,6 +132,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
   // Reset form when product changes
   useEffect(() => {
     if (product && open) {
+      setUploadedImages([]);
       reset({
         name: product?.name ?? '',
         sku: product?.sku ?? '',
@@ -277,9 +284,25 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
         }
       }
 
-      // Upload images if any (only new uploads, not existing images)
+      // Replace existing images when editing and new images are uploaded.
       const newImages = uploadedImages.filter((img) => img.file.size > 0);
       if (newImages.length > 0 && productId) {
+        if (isEdit) {
+          for (const existingImage of existingImages) {
+            if (existingImage?.id) {
+              await ProductImageService.delete(existingImage.id);
+            }
+
+            if (existingImage?.url) {
+              try {
+                await UploadService.deleteImage(existingImage.url);
+              } catch (deleteError) {
+                console.warn('Failed to delete old image file:', deleteError);
+              }
+            }
+          }
+        }
+
         await bulkCreateImagesMutation.mutateAsync({
           productId,
           data: {
@@ -312,7 +335,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             {isEdit ? t('editProduct') : t('addProduct')}
@@ -327,7 +350,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Basic Information */}
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="name">
                   {t('productName')} <span className="text-destructive">*</span>
@@ -385,7 +408,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                   <div key={`${img.url}-${index}`} className="relative">
                     <div className="relative h-24 w-24 overflow-hidden rounded-lg border">
                       <img
-                        src={img.url}
+                        src={resolveAssetUrl(img.url) ?? img.url}
                         alt={`Upload ${index + 1}`}
                         className="h-full w-full object-cover"
                       />
@@ -427,7 +450,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="price">
                   {t('price')} <span className="text-destructive">*</span>
@@ -555,7 +578,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          <div className="flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="outline"

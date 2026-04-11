@@ -45,6 +45,7 @@ export class UploadService {
     const response = await apiRequest<void>(`${this.basePath}/image`, {
       method: 'DELETE',
       body: JSON.stringify({ url }),
+      requireAuth: true,
     });
 
     if (!response.success) {

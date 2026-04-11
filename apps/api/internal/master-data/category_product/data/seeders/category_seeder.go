@@ -74,6 +74,12 @@ func (s *CategorySeeder) Seed(tenantID uint, outletID *uint) error {
 			Description: "Kategori untuk menu minuman",
 			SortOrder:   3,
 		},
+		{
+			Name:        "Paket",
+			Slug:        "paket",
+			Description: "Kategori untuk menu paket",
+			SortOrder:   4,
+		},
 	}
 
 	keepIDs := make([]uint, 0, len(targetCategories))
@@ -152,7 +158,7 @@ func (s *CategorySeeder) Seed(tenantID uint, outletID *uint) error {
 		return err
 	}
 
-	log.Println("✅ Category seeding completed: synced to Nasi, Makanan, Minuman")
+	log.Println("✅ Category seeding completed: synced to Nasi, Makanan, Minuman, Paket")
 	return nil
 }
 

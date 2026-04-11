@@ -140,7 +140,7 @@ export function WarehouseForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? t('editWarehouse') : t('addWarehouse')}</DialogTitle>
           <DialogDescription>{isEdit ? t('editWarehouseDesc') : t('addWarehouseDesc')}</DialogDescription>
@@ -148,7 +148,7 @@ export function WarehouseForm({
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="code">
                   {t('warehouseCode')} <span className="text-destructive">*</span>
@@ -180,7 +180,7 @@ export function WarehouseForm({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="type">{t('warehouseType')}</Label>
                 <Select
@@ -226,7 +226,7 @@ export function WarehouseForm({
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          <div className="flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="outline"

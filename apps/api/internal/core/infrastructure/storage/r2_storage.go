@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net/url"
+	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -32,6 +35,18 @@ type R2Config struct {
 	Bucket          string
 	PublicURL       string
 	BasePath        string
+}
+
+// LocalConfig holds local filesystem storage configuration.
+type LocalConfig struct {
+	UploadPath    string
+	PublicBaseURL string
+}
+
+// LocalStorage handles file uploads to local filesystem.
+type LocalStorage struct {
+	uploadPath    string
+	publicBaseURL string
 }
 
 // NewR2Storage creates a new R2 storage instance
@@ -148,6 +163,95 @@ func (s *R2Storage) extractObjectKey(url string) string {
 	return url
 }
 
+// NewLocalStorage creates a local storage instance.
+func NewLocalStorage(config LocalConfig) (*LocalStorage, error) {
+	uploadPath := strings.TrimSpace(config.UploadPath)
+	if uploadPath == "" {
+		uploadPath = "./uploads"
+	}
+
+	if err := os.MkdirAll(uploadPath, 0o755); err != nil {
+		return nil, fmt.Errorf("failed to create upload directory: %w", err)
+	}
+
+	publicBaseURL := strings.TrimSuffix(strings.TrimSpace(config.PublicBaseURL), "/")
+	publicBaseURL = strings.TrimSuffix(publicBaseURL, "/uploads")
+	return &LocalStorage{uploadPath: uploadPath, publicBaseURL: publicBaseURL}, nil
+}
+
+// UploadFile saves a file to local filesystem and returns its public URL.
+func (s *LocalStorage) UploadFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, folder string) (string, error) {
+	_ = ctx
+
+	ext := filepath.Ext(header.Filename)
+	filename := fmt.Sprintf("%s%s", uuid.New().String(), ext)
+
+	cleanFolder := strings.Trim(strings.ReplaceAll(folder, "..", ""), " /")
+	if cleanFolder == "" {
+		cleanFolder = "products"
+	}
+
+	targetDir := filepath.Join(s.uploadPath, filepath.FromSlash(cleanFolder))
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create target directory: %w", err)
+	}
+
+	targetPath := filepath.Join(targetDir, filename)
+	destination, err := os.Create(targetPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create target file: %w", err)
+	}
+	defer destination.Close()
+
+	if _, err := io.Copy(destination, file); err != nil {
+		return "", fmt.Errorf("failed to write file: %w", err)
+	}
+
+	publicPath := path.Join("uploads", cleanFolder, filename)
+	if s.publicBaseURL != "" {
+		return fmt.Sprintf("%s/%s", s.publicBaseURL, publicPath), nil
+	}
+
+	return "/" + publicPath, nil
+}
+
+// DeleteFile removes a file from local filesystem.
+func (s *LocalStorage) DeleteFile(ctx context.Context, fileURL string) error {
+	_ = ctx
+
+	trimmed := strings.TrimSpace(fileURL)
+	if trimmed == "" {
+		return fmt.Errorf("file URL is required")
+	}
+
+	pathPart := trimmed
+	if parsed, err := url.Parse(trimmed); err == nil && parsed.Path != "" {
+		pathPart = parsed.Path
+	}
+
+	pathPart = strings.TrimPrefix(pathPart, "/")
+	pathPart = strings.TrimPrefix(pathPart, "uploads/")
+	if pathPart == "" {
+		return fmt.Errorf("invalid file URL")
+	}
+
+	targetPath := filepath.Join(s.uploadPath, filepath.FromSlash(pathPart))
+	cleanTargetPath := filepath.Clean(targetPath)
+	cleanUploadPath := filepath.Clean(s.uploadPath)
+	if !strings.HasPrefix(cleanTargetPath, cleanUploadPath) {
+		return fmt.Errorf("invalid file path")
+	}
+
+	if err := os.Remove(cleanTargetPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to delete local file: %w", err)
+	}
+
+	return nil
+}
+
 // Storage interface for different storage types
 type Storage interface {
 	UploadFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, folder string) (string, error)
@@ -155,13 +259,12 @@ type Storage interface {
 }
 
 // NewStorage creates a storage instance based on configuration
-func NewStorage(storageType string, r2Config R2Config) (Storage, error) {
+func NewStorage(storageType string, r2Config R2Config, localConfig LocalConfig) (Storage, error) {
 	switch storageType {
 	case "r2":
 		return NewR2Storage(r2Config)
 	case "local":
-		// TODO: Implement local storage if needed
-		return nil, fmt.Errorf("local storage not implemented yet")
+		return NewLocalStorage(localConfig)
 	default:
 		return nil, fmt.Errorf("unsupported storage type: %s", storageType)
 	}

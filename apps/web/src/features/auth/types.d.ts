@@ -54,8 +54,8 @@ export interface SortMeta {
 
 // Auth Types
 export interface LoginRequest {
-  email: string;
-  password: string;
+  identifier: string;
+  password?: string;
 }
 
 export interface User {

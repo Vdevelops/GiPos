@@ -26,6 +26,9 @@ func SetupRoutes(router *gin.Engine) {
 	db := database.DB
 	cfg := config.Get()
 
+	// Serve local uploaded files.
+	router.Static("/uploads", cfg.Upload.Path)
+
 	// Initialize upload handler
 	uploadHandler, err := handlers.NewUploadHandler(cfg)
 	if err != nil {

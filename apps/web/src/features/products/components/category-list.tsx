@@ -81,14 +81,14 @@ export function CategoryList({ onAddCategory, onEditCategory }: CategoryListProp
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">{t('productCategories')}</h2>
           <p className="text-muted-foreground">
             {pagination?.total ?? 0} {t('categoriesFound')}
           </p>
         </div>
-        <Button onClick={handleAddCategory}>
+        <Button onClick={handleAddCategory} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           {t('addCategory')}
         </Button>
@@ -198,7 +198,7 @@ export function CategoryList({ onAddCategory, onEditCategory }: CategoryListProp
 
           {/* Pagination */}
           {pagination && pagination.total_pages > 1 && (
-            <div className="flex items-center justify-between mt-4">
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
                 Page {pagination.page} of {pagination.total_pages}
               </p>

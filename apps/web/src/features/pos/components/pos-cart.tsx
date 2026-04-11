@@ -43,9 +43,6 @@ export function POSCart({ items, onUpdateQuantity, onRemove, isLocked = false }:
                 <h4 className="truncate text-sm font-medium md:text-base">
                   {product?.name ?? 'Unknown Product'}
                 </h4>
-                <p className="text-xs text-muted-foreground md:text-sm">
-                  {formatCurrency(unitPrice)} / item
-                </p>
               </div>
 
               <Button

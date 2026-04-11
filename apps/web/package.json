@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit --skipLibCheck"
+    "type-check": "tsc --noEmit --skipLibCheck",
+    "kiosk:local": "powershell -ExecutionPolicy Bypass -File ./scripts/open-kiosk.ps1 -Url http://localhost:3000",
+    "kiosk:url": "powershell -ExecutionPolicy Bypass -File ./scripts/open-kiosk.ps1 -Url $env:KIOSK_URL"
   },
   "dependencies": {
     "@auth/core": "^0.34.3",

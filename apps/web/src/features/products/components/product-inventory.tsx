@@ -42,14 +42,20 @@ export function ProductInventory() {
 
   return (
     <>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="products">{t('products')}</TabsTrigger>
-          <TabsTrigger value="categories">{t('categories')}</TabsTrigger>
-          <TabsTrigger value="warehouses">{t('warehouses')}</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
+        <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto p-1">
+          <TabsTrigger value="products" className="min-w-[8.5rem]">
+            {t('products')}
+          </TabsTrigger>
+          <TabsTrigger value="categories" className="min-w-[8.5rem]">
+            {t('categories')}
+          </TabsTrigger>
+          <TabsTrigger value="warehouses" className="min-w-[8.5rem]">
+            {t('warehouses')}
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="products" className="mt-4">
+        <TabsContent value="products" className="mt-0">
           <ProductList
             onAddProduct={handleAddProduct}
             onEditProduct={handleEditProduct}
@@ -57,11 +63,11 @@ export function ProductInventory() {
           />
         </TabsContent>
 
-        <TabsContent value="categories" className="mt-4">
+        <TabsContent value="categories" className="mt-0">
           <CategoryList />
         </TabsContent>
 
-        <TabsContent value="warehouses" className="mt-4">
+        <TabsContent value="warehouses" className="mt-0">
           <WarehouseList />
         </TabsContent>
       </Tabs>

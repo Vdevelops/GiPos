@@ -7,17 +7,10 @@ import {
   LayoutDashboard,
   ShoppingCart,
   Package,
-  Users,
   BarChart3,
-  Wallet,
-  UserCog,
-  Store,
-  Plug,
-  Sparkles,
-  Settings,
-  HelpCircle,
   Search,
 } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 
 import {
   Sidebar,
@@ -34,75 +27,29 @@ import {
 import { Input } from "@/components/ui/input"
 import { UserProfileDropdown } from "./user-profile-dropdown"
 
+type MenuKey =
+  | "dashboard"
+  | "pos"
+  | "products"
+  | "reports"
+
+type MenuItem = {
+  key: MenuKey
+  url: string
+  icon: LucideIcon
+}
+
+const PRIMARY_MENU_ITEMS: MenuItem[] = [
+  { key: "dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { key: "pos", url: "/pos", icon: ShoppingCart },
+  { key: "products", url: "/products", icon: Package },
+  { key: "reports", url: "/reports", icon: BarChart3 },
+]
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const t = useTranslations()
-
-  const navigation = [
-    {
-      title: t('nav.dashboard'),
-      url: "/dashboard",
-      icon: LayoutDashboard,
-    },
-    {
-      title: t('nav.pos'),
-      url: "/pos",
-      icon: ShoppingCart,
-    },
-    {
-      title: t('nav.products'),
-      url: "/products",
-      icon: Package,
-    },
-    {
-      title: t('nav.customers'),
-      url: "/customers",
-      icon: Users,
-    },
-    {
-      title: t('nav.reports'),
-      url: "/reports",
-      icon: BarChart3,
-    },
-    {
-      title: t('nav.finance'),
-      url: "/finance",
-      icon: Wallet,
-    },
-    {
-      title: t('nav.employees'),
-      url: "/employees",
-      icon: UserCog,
-    },
-    {
-      title: t('nav.outlets'),
-      url: "/outlets",
-      icon: Store,
-    },
-    {
-      title: t('nav.integrations'),
-      url: "/integrations",
-      icon: Plug,
-    },
-    {
-      title: t('nav.premium'),
-      url: "/premium",
-      icon: Sparkles,
-    },
-  ]
-
-  const secondaryNav = [
-    {
-      title: t('nav.settings'),
-      url: "/settings",
-      icon: Settings,
-    },
-    {
-      title: t('nav.help'),
-      url: "/help",
-      icon: HelpCircle,
-    },
-  ]
+  const navigation = React.useMemo(() => PRIMARY_MENU_ITEMS, [])
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -141,35 +88,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.key}>
                   <SidebarMenuButton
                     asChild
                     isActive={pathname === item.url || pathname.startsWith(item.url + "/")}
-                    tooltip={item.title}
+                    tooltip={t(`nav.${item.key}`)}
                   >
                     <Link href={item.url}>
                       <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup className="mt-auto">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {secondaryNav.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.url}
-                    tooltip={item.title}
-                  >
-                    <Link href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
+                      <span>{t(`nav.${item.key}`)}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
