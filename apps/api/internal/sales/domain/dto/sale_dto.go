@@ -23,8 +23,10 @@ type CreateSaleItemRequest struct {
 
 // UpdateSaleRequest represents the request to update a sale (for void/refund)
 type UpdateSaleRequest struct {
-	Status *string `json:"status,omitempty" binding:"omitempty,oneof=pending completed cancelled refunded"`
-	Notes  *string `json:"notes,omitempty"`
+	Status        *string                 `json:"status,omitempty" binding:"omitempty,oneof=pending completed cancelled refunded"`
+	Notes         *string                 `json:"notes,omitempty"`
+	PaymentMethod *string                 `json:"payment_method,omitempty" binding:"omitempty,oneof=cash qris"`
+	Items         []CreateSaleItemRequest `json:"items,omitempty" binding:"omitempty,min=1,dive"`
 }
 
 // SaleResponse represents a sale in the response

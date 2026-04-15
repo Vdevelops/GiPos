@@ -62,6 +62,7 @@
     "cartEmptyDesc": "Pilih produk untuk menambahkannya ke keranjang",
     "item": "item",
     "subtotal": "Subtotal",
+    "priceBeforeDiscount": "Harga sebelum diskon",
     "discount": "Diskon ({percent}%)",
     "tax": "Pajak (10%)",
     "itemCount": "Jumlah item",

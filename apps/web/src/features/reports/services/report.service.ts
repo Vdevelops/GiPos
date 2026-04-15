@@ -19,6 +19,8 @@ import type {
   ReportTransactionsQuery,
   ReportTransactionsResponse,
   ReportTransactionResponse,
+  UpdateReportTransactionRequest,
+  UpdateReportTransactionResponse,
 } from '../types/report';
 
 function toQueryString(
@@ -124,5 +126,16 @@ export class ReportService {
       method: 'GET',
       requireAuth: true,
     }) as Promise<ReportTransactionResponse>;
+  }
+
+  static async updateTransactionById(
+    id: string,
+    payload: UpdateReportTransactionRequest
+  ): Promise<UpdateReportTransactionResponse> {
+    return apiRequest<ReportTransaction>(`sales/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+      requireAuth: true,
+    }) as Promise<UpdateReportTransactionResponse>;
   }
 }

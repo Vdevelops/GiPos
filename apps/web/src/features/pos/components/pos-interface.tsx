@@ -119,6 +119,14 @@ export function POSInterface() {
             <h2 className="text-2xl font-bold leading-tight md:text-3xl">
               {formatCurrency(totals.total)}
             </h2>
+            {totals.discountAmount > 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t('priceBeforeDiscount')}{' '}
+                <span className="font-medium text-foreground">
+                  {formatCurrency(totals.subtotal)}
+                </span>
+              </p>
+            )}
             <div className="mt-1 flex items-center gap-2">
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
               <Badge variant="secondary">

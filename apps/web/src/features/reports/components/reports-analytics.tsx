@@ -5,7 +5,12 @@ import {
   DollarSign,
   Eye,
   Package,
+  Pencil,
+  Plus,
+  Save,
   ShoppingCart,
+  Trash2,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,14 +48,27 @@ import {
   useReportTransaction,
   useReportTransactions,
   useReportTopProducts,
+  useUpdateReportTransaction,
 } from "@/features/reports/hooks/use-reports";
+import { useProducts } from "@/features/products/hooks/use-products";
 import type {
   ProductSalesSortBy,
   ReportFilterQuery,
   ReportProductSalesQuery,
   ReportRange,
+  ReportTransactionItem,
   ReportTransactionsQuery,
 } from "@/features/reports/types/report";
+
+type EditableTransactionItem = {
+  rowID: string;
+  product_id: string;
+  product_name: string;
+  product_sku: string;
+  quantity: number;
+  unit_price: number;
+  discount_amount: number;
+};
 
 type DatePreset = "today" | "monthly" | "yearly" | "date_range";
 const TRANSACTION_PAGE_SIZE = 20;
@@ -171,6 +189,18 @@ function formatPaymentMethodLabel(method: string): string {
   return method.toUpperCase();
 }
 
+function toEditableItem(item: ReportTransactionItem): EditableTransactionItem {
+  return {
+    rowID: item.id,
+    product_id: item.product_id,
+    product_name: item.product_name,
+    product_sku: item.product_sku,
+    quantity: item.quantity,
+    unit_price: item.unit_price,
+    discount_amount: item.discount_amount,
+  };
+}
+
 type LinePoint = {
   x: number;
   period: string;
@@ -234,6 +264,12 @@ export function ReportsAnalytics() {
   const [productSalesSortOrder, setProductSalesSortOrder] = useState<"asc" | "desc">("desc");
   const [detailOpen, setDetailOpen] = useState<boolean>(false);
   const [selectedTransactionID, setSelectedTransactionID] = useState<string | null>(null);
+  const [isEditingTransaction, setIsEditingTransaction] = useState<boolean>(false);
+  const [editedPaymentMethod, setEditedPaymentMethod] = useState<"cash" | "qris">("cash");
+  const [editedItems, setEditedItems] = useState<EditableTransactionItem[]>([]);
+  const [editedNotes, setEditedNotes] = useState<string>("");
+  const [selectedProductIDToAdd, setSelectedProductIDToAdd] = useState<string>("");
+  const [addProductQty, setAddProductQty] = useState<number>(1);
 
   const handleDatePresetChange = (value: string) => {
     const nextPreset = value as DatePreset;
@@ -312,6 +348,8 @@ export function ReportsAnalytics() {
   const paymentMethodsQuery = useReportPaymentMethods(filterQuery);
   const transactionsQuery = useReportTransactions(transactionQuery);
   const transactionDetailQuery = useReportTransaction(detailOpen ? selectedTransactionID : null);
+  const productsQuery = useProducts({ per_page: 200, status: "active", sort_by: "name", sort_order: "asc" });
+  const updateTransactionMutation = useUpdateReportTransaction();
 
   const summary = summaryQuery.data?.success ? summaryQuery.data.data : undefined;
   const salesData = salesQuery.data?.success ? salesQuery.data.data?.data ?? [] : [];
@@ -336,6 +374,114 @@ export function ReportsAnalytics() {
   const selectedTransaction = transactionDetailQuery.data?.success
     ? transactionDetailQuery.data.data
     : transactions.find((item) => item.id === selectedTransactionID);
+
+  const activeProducts = productsQuery.data?.success ? productsQuery.data.data ?? [] : [];
+  const selectableProducts = useMemo(
+    () => activeProducts.filter((product) => !editedItems.some((item) => item.product_id === product.id)),
+    [activeProducts, editedItems]
+  );
+
+  const editedSubtotal = useMemo(
+    () => editedItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0),
+    [editedItems]
+  );
+  const editedDiscount = useMemo(
+    () => editedItems.reduce((sum, item) => sum + item.discount_amount, 0),
+    [editedItems]
+  );
+  const editedTotal = useMemo(
+    () => Math.max(editedSubtotal - editedDiscount, 0),
+    [editedDiscount, editedSubtotal]
+  );
+
+  useEffect(() => {
+    if (!selectedTransaction || !detailOpen) {
+      setIsEditingTransaction(false);
+      setEditedItems([]);
+      setEditedNotes("");
+      setSelectedProductIDToAdd("");
+      setAddProductQty(1);
+      return;
+    }
+
+    setEditedPaymentMethod(
+      (selectedTransaction.payment_method?.toLowerCase() === "qris" ? "qris" : "cash")
+    );
+    setEditedItems((selectedTransaction.items ?? []).map((item) => toEditableItem(item)));
+    setEditedNotes(selectedTransaction.notes ?? "");
+    setSelectedProductIDToAdd("");
+    setAddProductQty(1);
+  }, [detailOpen, selectedTransaction]);
+
+  const handleUpdateItem = (
+    rowID: string,
+    field: "quantity" | "unit_price" | "discount_amount",
+    value: number
+  ) => {
+    setEditedItems((current) =>
+      current.map((item) => {
+        if (item.rowID !== rowID) return item;
+
+        if (field === "quantity") {
+          return { ...item, quantity: Math.max(1, Math.floor(value) || 1) };
+        }
+        if (field === "unit_price") {
+          return { ...item, unit_price: Math.max(0, Math.floor(value) || 0) };
+        }
+        return { ...item, discount_amount: Math.max(0, Math.floor(value) || 0) };
+      })
+    );
+  };
+
+  const handleAddItem = () => {
+    if (!selectedProductIDToAdd) return;
+
+    const product = activeProducts.find((entry) => entry.id === selectedProductIDToAdd);
+    if (!product) return;
+
+    setEditedItems((current) => [
+      ...current,
+      {
+        rowID: `new-${product.id}`,
+        product_id: product.id,
+        product_name: product.name,
+        product_sku: product.sku,
+        quantity: Math.max(1, Math.floor(addProductQty) || 1),
+        unit_price: product.price,
+        discount_amount: 0,
+      },
+    ]);
+    setSelectedProductIDToAdd("");
+    setAddProductQty(1);
+  };
+
+  const handleRemoveItem = (rowID: string) => {
+    setEditedItems((current) => current.filter((item) => item.rowID !== rowID));
+  };
+
+  const handleSaveTransactionEdit = async () => {
+    if (!selectedTransactionID || editedItems.length === 0) {
+      return;
+    }
+
+    const response = await updateTransactionMutation.mutateAsync({
+      id: selectedTransactionID,
+      payload: {
+        payment_method: editedPaymentMethod,
+        notes: editedNotes,
+        items: editedItems.map((item) => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          discount_amount: item.discount_amount,
+        })),
+      },
+    });
+
+    if (response.success) {
+      setIsEditingTransaction(false);
+    }
+  };
 
   const maxRevenue = useMemo(
     () => Math.max(...salesData.map((item) => item.total_revenue), 0),
@@ -1012,7 +1158,15 @@ export function ReportsAnalytics() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+      <Dialog
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open);
+          if (!open) {
+            setIsEditingTransaction(false);
+          }
+        }}
+      >
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl lg:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Detail Transaksi</DialogTitle>
@@ -1040,6 +1194,32 @@ export function ReportsAnalytics() {
                     <Badge variant={statusBadgeVariant(selectedTransaction.status)} className="uppercase">
                       Jual: {formatStatusLabel(selectedTransaction.status)}
                     </Badge>
+                    {!isEditingTransaction ? (
+                      <Button variant="outline" size="sm" onClick={() => setIsEditingTransaction(true)}>
+                        <Pencil className="mr-1 h-4 w-4" />
+                        Edit
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsEditingTransaction(false)}
+                          disabled={updateTransactionMutation.isPending}
+                        >
+                          <X className="mr-1 h-4 w-4" />
+                          Batal
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleSaveTransactionEdit}
+                          disabled={updateTransactionMutation.isPending || editedItems.length === 0}
+                        >
+                          <Save className="mr-1 h-4 w-4" />
+                          {updateTransactionMutation.isPending ? "Menyimpan..." : "Simpan"}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -1047,9 +1227,27 @@ export function ReportsAnalytics() {
                   <p className="text-muted-foreground">
                     Tanggal & Waktu Invoice: <span className="font-medium text-foreground">{formatDateTime(selectedTransaction.created_at)}</span>
                   </p>
-                  <p className="text-muted-foreground">
-                    Metode Pembayaran: <span className="font-medium uppercase text-foreground">{formatPaymentMethodLabel(selectedTransaction.payment_method)}</span>
-                  </p>
+                  {isEditingTransaction ? (
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground">Metode Pembayaran</p>
+                      <Select
+                        value={editedPaymentMethod}
+                        onValueChange={(value) => setEditedPaymentMethod(value as "cash" | "qris")}
+                      >
+                        <SelectTrigger className="h-8 w-full sm:w-[180px]">
+                          <SelectValue placeholder="Pilih metode" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">Tunai</SelectItem>
+                          <SelectItem value="qris">QRIS</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      Metode Pembayaran: <span className="font-medium uppercase text-foreground">{formatPaymentMethodLabel(selectedTransaction.payment_method)}</span>
+                    </p>
+                  )}
                   <p className="text-muted-foreground">
                     Outlet: <span className="font-medium text-foreground">{selectedTransaction.outlet?.name ?? "-"}</span>
                   </p>
@@ -1071,47 +1269,139 @@ export function ReportsAnalytics() {
                         <TableHead>Harga Satuan</TableHead>
                         <TableHead>Diskon</TableHead>
                         <TableHead>Total</TableHead>
+                        {isEditingTransaction && <TableHead className="text-right">Aksi</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(selectedTransaction.items ?? []).map((item) => (
-                        <TableRow key={item.id}>
+                      {(isEditingTransaction ? editedItems : (selectedTransaction.items ?? []).map((item) => toEditableItem(item))).map((item) => (
+                        <TableRow key={item.rowID}>
                           <TableCell>{item.product_name}</TableCell>
                           <TableCell>{item.product_sku}</TableCell>
-                          <TableCell>{item.quantity}</TableCell>
-                          <TableCell>{formatCurrency(item.unit_price)}</TableCell>
-                          <TableCell>{formatCurrency(item.discount_amount)}</TableCell>
-                          <TableCell>{formatCurrency(item.total)}</TableCell>
+                          <TableCell>
+                            {isEditingTransaction ? (
+                              <Input
+                                type="number"
+                                className="h-8 w-20"
+                                min={1}
+                                value={item.quantity}
+                                onChange={(event) => handleUpdateItem(item.rowID, "quantity", Number(event.target.value))}
+                              />
+                            ) : (
+                              item.quantity
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {isEditingTransaction ? (
+                              <Input
+                                type="number"
+                                className="h-8 w-32"
+                                min={0}
+                                value={item.unit_price}
+                                onChange={(event) => handleUpdateItem(item.rowID, "unit_price", Number(event.target.value))}
+                              />
+                            ) : (
+                              formatCurrency(item.unit_price)
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {isEditingTransaction ? (
+                              <Input
+                                type="number"
+                                className="h-8 w-32"
+                                min={0}
+                                value={item.discount_amount}
+                                onChange={(event) => handleUpdateItem(item.rowID, "discount_amount", Number(event.target.value))}
+                              />
+                            ) : (
+                              formatCurrency(item.discount_amount)
+                            )}
+                          </TableCell>
+                          <TableCell>{formatCurrency(Math.max(item.quantity * item.unit_price - item.discount_amount, 0))}</TableCell>
+                          {isEditingTransaction && (
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveItem(item.rowID)}
+                                disabled={editedItems.length <= 1}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </div>
 
+                {isEditingTransaction && (
+                  <div className="mt-3 grid gap-2 rounded-md border p-3 lg:grid-cols-[minmax(0,1fr)_120px_auto]">
+                    <Select value={selectedProductIDToAdd} onValueChange={setSelectedProductIDToAdd}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pilih produk untuk ditambahkan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {selectableProducts.map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name} ({product.sku})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={addProductQty}
+                      onChange={(event) => setAddProductQty(Math.max(1, Number(event.target.value) || 1))}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAddItem}
+                      disabled={!selectedProductIDToAdd}
+                    >
+                      <Plus className="mr-1 h-4 w-4" />
+                      Tambah Item
+                    </Button>
+                  </div>
+                )}
+
                 <div className="mt-4 grid gap-1 text-sm sm:grid-cols-2">
                   <p className="text-muted-foreground">
-                    Subtotal: <span className="font-medium text-foreground">{formatCurrency(selectedTransaction.subtotal)}</span>
+                    Subtotal: <span className="font-medium text-foreground">{formatCurrency(isEditingTransaction ? editedSubtotal : selectedTransaction.subtotal)}</span>
                   </p>
                   <p className="text-muted-foreground">
-                    Diskon: <span className="font-medium text-foreground">{formatCurrency(selectedTransaction.discount_amount)}</span>
+                    Diskon: <span className="font-medium text-foreground">{formatCurrency(isEditingTransaction ? editedDiscount : selectedTransaction.discount_amount)}</span>
                   </p>
                   <p className="text-muted-foreground">
                     Pajak: <span className="font-medium text-foreground">{formatCurrency(selectedTransaction.tax_amount)}</span>
                   </p>
                   <p className="text-muted-foreground">
-                    Total Penjualan: <span className="font-semibold text-foreground">{formatCurrency(selectedTransaction.total)}</span>
+                    Total Penjualan: <span className="font-semibold text-foreground">{formatCurrency(isEditingTransaction ? editedTotal : selectedTransaction.total)}</span>
                   </p>
                 </div>
+
+                {isEditingTransaction && (
+                  <div className="mt-3">
+                    <p className="mb-1 text-xs text-muted-foreground">Catatan Transaksi</p>
+                    <Input
+                      value={editedNotes}
+                      onChange={(event) => setEditedNotes(event.target.value)}
+                      placeholder="Tambahkan catatan perubahan transaksi"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="rounded-lg border p-3 text-sm">
                 <p className="mb-3 font-semibold">Detail Pembayaran</p>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <p className="text-muted-foreground">
-                    Metode: <span className="font-medium uppercase text-foreground">{formatPaymentMethodLabel(selectedTransaction.payment?.method ?? selectedTransaction.payment_method)}</span>
+                    Metode: <span className="font-medium uppercase text-foreground">{formatPaymentMethodLabel(isEditingTransaction ? editedPaymentMethod : (selectedTransaction.payment?.method ?? selectedTransaction.payment_method))}</span>
                   </p>
                   <p className="text-muted-foreground">
-                    Jumlah: <span className="font-medium text-foreground">{formatCurrency(selectedTransaction.payment?.amount ?? selectedTransaction.total)}</span>
+                    Jumlah: <span className="font-medium text-foreground">{formatCurrency(isEditingTransaction ? editedTotal : (selectedTransaction.payment?.amount ?? selectedTransaction.total))}</span>
                   </p>
                   <p className="text-muted-foreground">
                     Status: <span className="font-medium uppercase text-foreground">{formatStatusLabel(selectedTransaction.payment?.status ?? selectedTransaction.payment_status)}</span>

@@ -79,6 +79,35 @@ func (h *SaleHandler) GetSale(c *gin.Context) {
 	response.Success(c, saleResponse, meta)
 }
 
+// UpdateSale handles PUT /api/v1/sales/:id
+func (h *SaleHandler) UpdateSale(c *gin.Context) {
+	id := c.Param("id")
+
+	var req dto.UpdateSaleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fieldErrors := validators.ParseValidationErrors(c, err)
+		errors.ValidationError(c, fieldErrors)
+		return
+	}
+
+	tenantID, exists := c.Get("tenant_id")
+	if !exists {
+		errors.Unauthorized(c, "Tenant ID is required")
+		return
+	}
+
+	saleResponse, err := h.saleUsecase.UpdateSale(tenantID.(string), id, &req)
+	if err != nil {
+		errorCode := err.Error()
+		errors.Error(c, errorCode, nil, nil)
+		return
+	}
+
+	meta := response.GetMetaFromContext(c)
+	meta.TenantID = tenantID.(string)
+	response.Success(c, saleResponse, meta)
+}
+
 // ListSales handles GET /api/v1/sales
 func (h *SaleHandler) ListSales(c *gin.Context) {
 	tenantID, exists := c.Get("tenant_id")

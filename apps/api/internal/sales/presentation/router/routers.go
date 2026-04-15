@@ -44,6 +44,7 @@ func SetupSalesRoutes(r *gin.RouterGroup) {
 		sales.POST("", saleHandler.CreateSale)
 		sales.GET("", saleHandler.ListSales)
 		sales.GET("/:id", saleHandler.GetSale)
+		sales.PUT("/:id", saleHandler.UpdateSale)
 		sales.POST("/:id/void", saleHandler.VoidSale)
 		sales.GET("/:id/payment", paymentHandler.GetPaymentBySaleID)
 	}
