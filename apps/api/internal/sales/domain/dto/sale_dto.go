@@ -2,7 +2,7 @@ package dto
 
 // CreateSaleRequest represents the request to create a sale
 type CreateSaleRequest struct {
-	OutletID        string                `json:"outlet_id" binding:"required"`
+	OutletID        string                `json:"outlet_id,omitempty"`
 	ShiftID         *string               `json:"shift_id,omitempty"`
 	CustomerID      *string               `json:"customer_id,omitempty"`
 	Items           []CreateSaleItemRequest `json:"items" binding:"required,min=1,dive"`

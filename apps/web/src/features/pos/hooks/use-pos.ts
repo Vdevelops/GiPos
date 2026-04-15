@@ -176,7 +176,7 @@ export function usePOS() {
   // Process checkout
   const processCheckout = useCallback(
     async (
-      outletId: string,
+      outletId: string | null | undefined,
       shiftId: string | null,
       paymentMethod: PaymentMethod,
       paymentData: Record<string, unknown>
@@ -186,14 +186,11 @@ export function usePOS() {
           throw new Error('Cart is empty');
         }
 
-        const normalizedOutletId = outletId.trim();
-        if (!normalizedOutletId) {
-          throw new Error('Outlet is required to process checkout');
-        }
+        const normalizedOutletId = (outletId ?? '').trim();
+        const hasValidOutletId = /^\d+$/.test(normalizedOutletId);
 
-        if (!/^\d+$/.test(normalizedOutletId)) {
-          throw new Error('Invalid outlet selected for checkout');
-        }
+        const normalizedShiftId = (shiftId ?? '').trim();
+        const hasValidShiftId = /^\d+$/.test(normalizedShiftId);
 
         let saleId = pendingSale?.id;
         let saleTotal = pendingSale?.total ?? totals.total;
@@ -215,12 +212,16 @@ export function usePOS() {
                 : undefined,
           }));
 
-          const saleResponse = await createSaleMutation.mutateAsync({
-            outlet_id: normalizedOutletId,
-            shift_id: shiftId,
+          const saleRequestPayload = {
             items: saleItems,
             payment_method: paymentMethod,
-          });
+            ...(hasValidOutletId ? { outlet_id: normalizedOutletId } : {}),
+            ...(hasValidShiftId ? { shift_id: normalizedShiftId } : {}),
+          };
+
+          const saleResponse = await createSaleMutation.mutateAsync(
+            saleRequestPayload
+          );
 
           if (!saleResponse.success || !saleResponse.data) {
             throw new Error(saleResponse.error?.message ?? 'Failed to create sale');

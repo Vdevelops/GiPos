@@ -52,7 +52,7 @@ func (h *SaleHandler) CreateSale(c *gin.Context) {
 
 	meta := response.GetMetaFromContext(c)
 	meta.TenantID = tenantID.(string)
-	meta.OutletID = req.OutletID
+	meta.OutletID = saleResponse.OutletID
 	meta.CreatedBy = userID.(string)
 	response.SuccessCreated(c, saleResponse, meta)
 }

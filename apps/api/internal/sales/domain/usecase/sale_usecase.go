@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	sharedModels "gipos/api/internal/core/shared/models"
@@ -102,25 +103,12 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 		return nil, errors.New("INVALID_USER_ID")
 	}
 
-	// Convert outletID from string to uint
-	outletIDUint, err := stringToUint(req.OutletID)
-	if err != nil {
-		return nil, errors.New("INVALID_OUTLET_ID")
-	}
-
-	// Validate outlet exists
-	outlet, err := uc.outletRepo.GetByID(tenantIDUint, outletIDUint)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("OUTLET_NOT_FOUND")
-		}
-		return nil, errors.New("INTERNAL_SERVER_ERROR")
-	}
-
 	// Validate shift if provided
 	var shiftIDUint *uint
-	if req.ShiftID != nil && *req.ShiftID != "" {
-		shiftIDUint, err = stringPtrToUintPtr(req.ShiftID)
+	var shiftOutletIDUint *uint
+	if req.ShiftID != nil && strings.TrimSpace(*req.ShiftID) != "" {
+		normalizedShiftID := strings.TrimSpace(*req.ShiftID)
+		shiftIDUint, err = stringPtrToUintPtr(&normalizedShiftID)
 		if err != nil {
 			return nil, errors.New("INVALID_SHIFT_ID")
 		}
@@ -135,12 +123,69 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 		if shift.Status != models.ShiftStatusOpen {
 			return nil, errors.New("SHIFT_NOT_OPEN")
 		}
-		// Validate shift belongs to outlet
-		if shift.OutletID != outletIDUint {
+
+		shiftOutletIDUint = &shift.OutletID
+	}
+
+	normalizedOutletID := strings.TrimSpace(req.OutletID)
+	var outletIDUint uint
+	var outletCode string
+
+	if normalizedOutletID != "" {
+		outletIDUint, err = stringToUint(normalizedOutletID)
+		if err != nil {
+			return nil, errors.New("INVALID_OUTLET_ID")
+		}
+
+		outlet, err := uc.outletRepo.GetByID(tenantIDUint, outletIDUint)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, errors.New("OUTLET_NOT_FOUND")
+			}
+			return nil, errors.New("INTERNAL_SERVER_ERROR")
+		}
+
+		if shiftOutletIDUint != nil && *shiftOutletIDUint != outletIDUint {
 			return nil, errors.New("SHIFT_OUTLET_MISMATCH")
 		}
+
+		outletCode = outlet.Code
+	} else if shiftOutletIDUint != nil {
+		outletIDUint = *shiftOutletIDUint
+		outlet, err := uc.outletRepo.GetByID(tenantIDUint, outletIDUint)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, errors.New("OUTLET_NOT_FOUND")
+			}
+			return nil, errors.New("INTERNAL_SERVER_ERROR")
+		}
+
+		outletCode = outlet.Code
 	} else {
-		// If shift not provided, try to get open shift for outlet
+		mainOutlet, err := uc.outletRepo.GetMainOutlet(tenantIDUint)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				outlets, _, listErr := uc.outletRepo.List(tenantIDUint, 1, 0, "", "")
+				if listErr != nil {
+					return nil, errors.New("INTERNAL_SERVER_ERROR")
+				}
+				if len(outlets) == 0 {
+					return nil, errors.New("OUTLET_NOT_FOUND")
+				}
+
+				outletIDUint = outlets[0].ID
+				outletCode = outlets[0].Code
+			} else {
+				return nil, errors.New("INTERNAL_SERVER_ERROR")
+			}
+		} else {
+			outletIDUint = mainOutlet.ID
+			outletCode = mainOutlet.Code
+		}
+	}
+
+	if shiftIDUint == nil {
+		// If shift not provided, try to get open shift for outlet.
 		openShift, err := uc.shiftRepo.GetOpenShiftByOutlet(tenantIDUint, outletIDUint)
 		if err == nil && openShift != nil {
 			shiftIDUint = &openShift.ID
@@ -296,7 +341,6 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 
 	// Generate invoice number
 	dateStr := time.Now().Format("20060102")
-	outletCode := outlet.Code
 	// Get sequence number for today
 	var sequence int
 	var lastSale models.Sale
