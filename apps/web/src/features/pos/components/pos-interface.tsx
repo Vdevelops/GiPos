@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, Search, ShoppingCart, Wallet } from 'lucide-react';
+import { ArrowLeft, Search, ShoppingCart, Trash2, Wallet } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,11 +17,14 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
+const POS_PRODUCT_ORDER_STORAGE_KEY = 'gipos-pos-product-order';
+
 export function POSInterface() {
   const t = useTranslations('pos');
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<'all' | string>('all');
+  const [productOrder, setProductOrder] = useState<string[]>([]);
   const {
     searchQuery,
     setSearchQuery,
@@ -34,6 +37,7 @@ export function POSInterface() {
     addToCart,
     updateQuantity,
     removeFromCart,
+    clearCart,
     updateWednesdayDiscountEnabled,
     processCheckout,
     isProcessing,
@@ -42,6 +46,65 @@ export function POSInterface() {
   } = usePOS();
 
   const debouncedSearch = useDebounce(searchQuery, 300);
+
+  const productIds = useMemo(
+    () => products.map((product) => product?.id).filter((id): id is string => Boolean(id)),
+    [products]
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const savedOrder = window.localStorage.getItem(POS_PRODUCT_ORDER_STORAGE_KEY);
+      if (!savedOrder) {
+        return;
+      }
+
+      const parsed = JSON.parse(savedOrder);
+      if (!Array.isArray(parsed)) {
+        return;
+      }
+
+      setProductOrder(parsed.filter((id): id is string => typeof id === 'string' && id.length > 0));
+    } catch {
+      // Ignore hydration error, ordering still works in-memory.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (productIds.length === 0) {
+      return;
+    }
+
+    setProductOrder((prev) => {
+      const availableIds = new Set(productIds);
+      const normalized = prev.filter((id) => availableIds.has(id));
+      const normalizedSet = new Set(normalized);
+      const missingIds = productIds.filter((id) => !normalizedSet.has(id));
+      const nextOrder = [...normalized, ...missingIds];
+
+      if (nextOrder.length === prev.length && nextOrder.every((id, index) => id === prev[index])) {
+        return prev;
+      }
+
+      return nextOrder;
+    });
+  }, [productIds]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(POS_PRODUCT_ORDER_STORAGE_KEY, JSON.stringify(productOrder));
+    } catch {
+      // Ignore storage write error, ordering still works in-memory.
+    }
+  }, [productOrder]);
 
   const categoryOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -62,20 +125,49 @@ export function POSInterface() {
   }, [products]);
 
   // Filter products based on search (client-side filtering for better UX)
-  const filteredProducts = products.filter((product) => {
-    const matchesCategory =
-      selectedCategoryId === 'all' || product?.category_id === selectedCategoryId;
+  const filteredProducts = useMemo(() => {
+    const filtered = products.filter((product) => {
+      const matchesCategory =
+        selectedCategoryId === 'all' || product?.category_id === selectedCategoryId;
 
-    if (!matchesCategory) return false;
-    if (!debouncedSearch) return true;
+      if (!matchesCategory) return false;
+      if (!debouncedSearch) return true;
 
-    const query = debouncedSearch.toLowerCase();
-    return (
-      product?.name?.toLowerCase().includes(query) ||
-      product?.sku?.toLowerCase().includes(query) ||
-      product?.barcode?.toLowerCase().includes(query)
-    );
-  });
+      const query = debouncedSearch.toLowerCase();
+      return (
+        product?.name?.toLowerCase().includes(query) ||
+        product?.sku?.toLowerCase().includes(query) ||
+        product?.barcode?.toLowerCase().includes(query)
+      );
+    });
+
+    if (filtered.length <= 1 || productOrder.length === 0) {
+      return filtered;
+    }
+
+    const indexMap = new Map(productOrder.map((id, index) => [id, index]));
+    return [...filtered].sort((a, b) => {
+      const aIndex = indexMap.get(a?.id ?? '') ?? Number.MAX_SAFE_INTEGER;
+      const bIndex = indexMap.get(b?.id ?? '') ?? Number.MAX_SAFE_INTEGER;
+      return aIndex - bIndex;
+    });
+  }, [products, selectedCategoryId, debouncedSearch, productOrder]);
+
+  const handleReorderProducts = (sourceProductId: string, targetProductId: string) => {
+    setProductOrder((prev) => {
+      const baseOrder = prev.length > 0 ? [...prev] : [...productIds];
+      const sourceIndex = baseOrder.indexOf(sourceProductId);
+      const targetIndex = baseOrder.indexOf(targetProductId);
+
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+        return prev;
+      }
+
+      const [moved] = baseOrder.splice(sourceIndex, 1);
+      baseOrder.splice(targetIndex, 0, moved);
+      return baseOrder;
+    });
+  };
 
   const outletId = useMemo(
     () =>
@@ -232,6 +324,7 @@ export function POSInterface() {
               products={filteredProducts}
               isLoading={isLoadingProducts}
               onProductClick={addToCart}
+              onReorderProducts={handleReorderProducts}
               isCheckoutLocked={hasPendingSale}
             />
           </div>
@@ -243,15 +336,28 @@ export function POSInterface() {
       </div>
 
       {itemCount > 0 && !isMobileCartOpen && (
-        <Button
-          type="button"
-          className="fixed right-4 bottom-20 z-40 h-11 rounded-full px-4 text-sm font-semibold shadow-lg sm:bottom-24 lg:bottom-4 lg:h-12 lg:px-5 lg:text-base"
-          onClick={() => setIsPaymentModalOpen(true)}
-          disabled={isProcessing}
-        >
-          <Wallet className="mr-2 h-4 w-4 lg:h-5 lg:w-5" />
-          Lanjutkan Pembayaran
-        </Button>
+        <div className="fixed right-4 bottom-20 z-40 flex items-center gap-2 sm:bottom-24 lg:bottom-4">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 rounded-full border-destructive/40 px-4 text-sm font-semibold text-destructive shadow-lg hover:border-destructive hover:bg-destructive/10 hover:text-destructive lg:h-12 lg:px-5 lg:text-base"
+            onClick={clearCart}
+            disabled={isProcessing || hasPendingSale}
+          >
+            <Trash2 className="mr-2 h-4 w-4 lg:h-5 lg:w-5" />
+            {t('clearAll')}
+          </Button>
+
+          <Button
+            type="button"
+            className="h-11 rounded-full px-4 text-sm font-semibold shadow-lg lg:h-12 lg:px-5 lg:text-base"
+            onClick={() => setIsPaymentModalOpen(true)}
+            disabled={isProcessing}
+          >
+            <Wallet className="mr-2 h-4 w-4 lg:h-5 lg:w-5" />
+            Lanjutkan Pembayaran
+          </Button>
+        </div>
       )}
 
       <Button

@@ -61,6 +61,7 @@
     "cartEmpty": "Keranjang kosong",
     "cartEmptyDesc": "Pilih produk untuk menambahkannya ke keranjang",
     "item": "item",
+    "clearAll": "Hapus Semua",
     "subtotal": "Subtotal",
     "priceBeforeDiscount": "Harga sebelum diskon",
     "discount": "Diskon ({percent}%)",

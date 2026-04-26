@@ -9,6 +9,8 @@ import type { CartItem } from '../components/pos-cart';
 
 type PaymentMethod = 'cash' | 'qris';
 
+const POS_CART_STORAGE_KEY = 'gipos-pos-cart';
+
 interface PendingSale {
   id: string;
   total: number;
@@ -49,6 +51,50 @@ export function usePOS() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [pendingSale, setPendingSale] = useState<PendingSale | null>(null);
   const [isWednesdayDiscountEnabled, setIsWednesdayDiscountEnabled] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const storedCart = window.localStorage.getItem(POS_CART_STORAGE_KEY);
+      if (!storedCart) {
+        return;
+      }
+
+      const parsed = JSON.parse(storedCart);
+      if (!Array.isArray(parsed)) {
+        return;
+      }
+
+      const hydratedCart = parsed.filter((item): item is CartItem => {
+        return (
+          Boolean(item) &&
+          typeof item === 'object' &&
+          typeof item.quantity === 'number' &&
+          item.quantity > 0 &&
+          Boolean(item.product?.id)
+        );
+      });
+
+      setCart(hydratedCart);
+    } catch (error) {
+      console.error('Failed to hydrate POS cart from localStorage:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(POS_CART_STORAGE_KEY, JSON.stringify(cart));
+    } catch (error) {
+      console.error('Failed to persist POS cart to localStorage:', error);
+    }
+  }, [cart]);
 
   const isWednesdayDiscountAvailable = useMemo(
     () => new Date().getDay() === 3,
