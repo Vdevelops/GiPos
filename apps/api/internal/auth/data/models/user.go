@@ -21,7 +21,6 @@ type User struct {
 	LastLoginAt *time.Time `gorm:"index" json:"last_login_at,omitempty"` // Index for filtering
 	CreatedBy   *uint `gorm:"index" json:"created_by,omitempty"` // User who created this user
 	UpdatedBy   *uint `gorm:"index" json:"updated_by,omitempty"` // User who last updated this user
-
 	// Relations
 	Outlet      *outletModels.Outlet `gorm:"foreignKey:OutletID" json:"outlet,omitempty"`
 	Tenant      *sharedModels.Tenant `gorm:"foreignKey:TenantID" json:"tenant,omitempty"`
