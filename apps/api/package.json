@@ -6,8 +6,11 @@
     "dev": "go run cmd/api/main.go",
     "dev:server-only": "go run cmd/api/main.go --server-only",
     "build": "go build -o bin/api cmd/api/main.go",
-    "start": "go run cmd/api/main.go",
-    "lint": "golangci-lint run ./..."
+    "start": "go run cmd/api/main.go --server-only",
+    "lint": "golangci-lint run ./...",
+    "migrate": "go run cmd/migrate/main.go",
+    "seed": "go run cmd/seed/main.go"
+    
   }
 }
 
