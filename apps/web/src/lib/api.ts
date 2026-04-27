@@ -35,7 +35,7 @@ function normalizeBasePath(value: string): string {
 // 🔥 BASE URL (WAJIB)
 function getApiBaseUrl(): string {
   return normalizeBaseUrl(
-    process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'
+    process.env.NEXT_PUBLIC_API_BASE_URL || ''
   );
 }
 
