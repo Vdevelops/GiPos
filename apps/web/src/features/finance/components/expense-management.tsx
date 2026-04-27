@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "@/lib/toast"
 import {
   useCreateFixedExpenseComponent,
   useCreateGeneralExpense,
@@ -456,6 +457,7 @@ export function ExpenseManagement() {
 
     return Array.from(itemTotals.entries()).map(([name, amount], index) => ({
       key: `period-general-${index}`,
+      id: undefined,
       name,
       amount,
     }))
