@@ -11,75 +11,72 @@ import { tokenStorage } from './token';
 const REFRESH_ENDPOINT = 'auth/refresh';
 let refreshPromise: Promise<boolean> | null = null;
 
+/**
+ * =========================
+ * BASE URL CONFIG
+ * =========================
+ */
+
+// Normalize URL (hapus trailing slash)
 function normalizeBaseUrl(value: string): string {
   const trimmed = value.trim();
   return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
 }
 
+// Normalize path (pastikan diawali "/" dan tanpa trailing slash)
 function normalizeBasePath(value: string): string {
   const trimmed = value.trim();
-  if (!trimmed || trimmed === '/') {
-    return '';
-  }
+  if (!trimmed || trimmed === '/') return '';
 
-  const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  return withLeadingSlash.endsWith('/') ? withLeadingSlash.slice(0, -1) : withLeadingSlash;
+  const withSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return withSlash.endsWith('/') ? withSlash.slice(0, -1) : withSlash;
 }
 
+// 🔥 BASE URL (WAJIB)
+function getApiBaseUrl(): string {
+  return normalizeBaseUrl(
+    process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'
+  );
+}
+
+// 🔥 BASE PATH (WAJIB FIX)
+function getApiBasePath(): string {
+  return normalizeBasePath(
+    process.env.NEXT_PUBLIC_API_BASE_PATH || '/api/v1'
+  );
+}
+
+// Gabungkan path
 function buildApiPath(basePath: string, endpoint: string): string {
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-  if (!basePath) {
-    return `/${cleanEndpoint}`;
-  }
+  const cleanEndpoint = endpoint.startsWith('/')
+    ? endpoint.slice(1)
+    : endpoint;
+
   return `${basePath}/${cleanEndpoint}`;
 }
 
 /**
- * Get API base URL from environment variable
- * Defaults to localhost:8080 for development
+ * =========================
+ * LOCALE
+ * =========================
  */
-function getApiBaseUrl(): string {
-  const configuredUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (typeof window === 'undefined') {
-    return normalizeBaseUrl(configuredUrl || 'http://localhost:8080');
-  }
 
-  return normalizeBaseUrl(configuredUrl || 'http://localhost:8080');
-}
-
-/**
- * Get API base path from environment variable
- * Defaults to /api/v1 for standard API versioning
- */
-function getApiBasePath(): string {
-  const configuredPath = process.env.NEXT_PUBLIC_API_BASE_PATH;
-  if (typeof configuredPath === 'undefined') {
-    return '/api/v1';
-  }
-  return normalizeBasePath(configuredPath);
-}
-
-/**
- * Get current locale from browser or default to 'en'
- */
 function getCurrentLocale(): string {
   if (typeof window === 'undefined') return 'en';
-  
-  // Try to get locale from pathname
+
   const pathname = window.location.pathname;
-  const localeMatch = pathname.match(/^\/(id|en)/);
-  if (localeMatch) {
-    return localeMatch[1];
-  }
-  
-  // Fallback to browser language
-  const browserLang = navigator.language.split('-')[0];
-  return browserLang === 'id' ? 'id' : 'en';
+  const match = pathname.match(/^\/(id|en)/);
+  if (match) return match[1];
+
+  return navigator.language.startsWith('id') ? 'id' : 'en';
 }
 
 /**
- * API request options
+ * =========================
+ * REQUEST CORE
+ * =========================
  */
+
 interface ApiRequestOptions extends RequestInit {
   requireAuth?: boolean;
   locale?: string;
@@ -87,20 +84,20 @@ interface ApiRequestOptions extends RequestInit {
 
 async function executeRequest(
   url: string,
-  fetchOptions: RequestInit,
+  options: RequestInit,
   headers: Record<string, string>
 ): Promise<Response> {
   return fetch(url, {
-    ...fetchOptions,
-    headers: headers as HeadersInit,
+    ...options,
+    headers,
   });
 }
 
-function buildUnauthorizedResponse<T>(code: string, message: string): ApiResponse<T> {
+function buildUnauthorizedResponse<T>(message: string): ApiResponse<T> {
   return {
     success: false,
     error: {
-      code,
+      code: 'UNAUTHORIZED',
       message,
       message_en: message,
     },
@@ -109,228 +106,126 @@ function buildUnauthorizedResponse<T>(code: string, message: string): ApiRespons
   };
 }
 
-async function refreshAccessToken(baseUrl: string, basePath: string, locale: string): Promise<boolean> {
+/**
+ * =========================
+ * REFRESH TOKEN
+ * =========================
+ */
+
+async function refreshAccessToken(
+  baseUrl: string,
+  basePath: string,
+  locale: string
+): Promise<boolean> {
   const refreshToken = tokenStorage.getRefreshToken();
-  if (!refreshToken) {
-    return false;
-  }
+  if (!refreshToken) return false;
 
-  const refreshPath = buildApiPath(basePath, REFRESH_ENDPOINT);
-  const refreshUrl = `${baseUrl}${refreshPath}`;
+  const url = `${baseUrl}${buildApiPath(basePath, REFRESH_ENDPOINT)}`;
 
-  const response = await executeRequest(
-    refreshUrl,
-    {
-      method: 'POST',
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    },
-    {
+  const res = await fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({ refresh_token: refreshToken }),
+    headers: {
       'Content-Type': 'application/json',
       'X-Locale': locale,
-      'Accept-Language': locale,
-    }
-  );
+    },
+  });
 
-  if (!response.ok) {
-    return false;
-  }
+  if (!res.ok) return false;
 
-  const contentType = response.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
-    return false;
-  }
+  const data = (await res.json()) as ApiResponse<TokenData>;
+  if (!data.success || !data.data) return false;
 
-  const payload = (await response.json()) as ApiResponse<TokenData>;
-  if (!payload.success || !payload.data) {
-    return false;
-  }
+  tokenStorage.setAccessToken(data.data.access_token, data.data.expires_in);
+  tokenStorage.setRefreshToken(data.data.refresh_token);
 
-  tokenStorage.setAccessToken(payload.data.access_token, payload.data.expires_in);
-  tokenStorage.setRefreshToken(payload.data.refresh_token);
   return true;
 }
 
-async function refreshAccessTokenSingleFlight(baseUrl: string, basePath: string, locale: string): Promise<boolean> {
+async function refreshAccessTokenSingleFlight(
+  baseUrl: string,
+  basePath: string,
+  locale: string
+): Promise<boolean> {
   if (!refreshPromise) {
-    refreshPromise = (async () => {
-      try {
-        const refreshed = await refreshAccessToken(baseUrl, basePath, locale);
-        if (!refreshed) {
-          tokenStorage.clear();
-        }
-        return refreshed;
-      } catch {
-        tokenStorage.clear();
-        return false;
-      }
-    })().finally(() => {
-      refreshPromise = null;
-    });
+    refreshPromise = refreshAccessToken(baseUrl, basePath, locale).finally(
+      () => (refreshPromise = null)
+    );
   }
 
   return refreshPromise;
 }
 
-function isRefreshEndpoint(cleanEndpoint: string): boolean {
-  return cleanEndpoint === REFRESH_ENDPOINT || cleanEndpoint.endsWith(`/${REFRESH_ENDPOINT}`);
-}
-
 /**
- * Make API request with standard error handling
+ * =========================
+ * MAIN REQUEST
+ * =========================
  */
-async function apiRequest<T>(
+
+export async function apiRequest<T>(
   endpoint: string,
   options: ApiRequestOptions = {}
 ): Promise<ApiResponse<T>> {
   const baseUrl = getApiBaseUrl();
   const basePath = getApiBasePath();
-  
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-  const fullPath = buildApiPath(basePath, cleanEndpoint);
-  const url = `${baseUrl}${fullPath}`;
-  
-  const { requireAuth = false, locale, ...fetchOptions } = options;
-  
-  // Prepare headers
-  const headers: Record<string, string> = {};
-  
-  // Only set Content-Type if body is not FormData (browser will set it automatically for FormData)
-  const isFormData = fetchOptions.body instanceof FormData;
-  if (!isFormData) {
-    headers['Content-Type'] = 'application/json';
-  }
-  
-  // Merge existing headers if provided
-  if (fetchOptions.headers) {
-    if (fetchOptions.headers instanceof Headers) {
-      fetchOptions.headers.forEach((value, key) => {
-        headers[key] = value;
-      });
-    } else if (Array.isArray(fetchOptions.headers)) {
-      fetchOptions.headers.forEach(([key, value]) => {
-        headers[key] = value;
-      });
-    } else {
-      Object.assign(headers, fetchOptions.headers);
-    }
-  }
-  
-  // Add locale header
+
+  const url = `${baseUrl}${buildApiPath(basePath, endpoint)}`;
+  const { requireAuth = true, locale, ...fetchOptions } = options;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
   const currentLocale = locale || getCurrentLocale();
   headers['X-Locale'] = currentLocale;
-  headers['Accept-Language'] = currentLocale;
-  
-  // Add authorization header if required (default to true for most API calls)
-  if (requireAuth !== false) {
+
+  if (requireAuth) {
     if (tokenStorage.isTokenExpired()) {
-      const refreshed = await refreshAccessTokenSingleFlight(baseUrl, basePath, currentLocale);
+      const refreshed = await refreshAccessTokenSingleFlight(
+        baseUrl,
+        basePath,
+        currentLocale
+      );
+
       if (!refreshed) {
-        return buildUnauthorizedResponse<T>('TOKEN_EXPIRED', 'Session expired, please login again');
+        return buildUnauthorizedResponse('Session expired');
       }
     }
 
-    const accessToken = tokenStorage.getAccessToken();
-    if (!accessToken) {
-      return buildUnauthorizedResponse<T>('TOKEN_MISSING', 'Authentication token is missing');
+    const token = tokenStorage.getAccessToken();
+    if (!token) {
+      return buildUnauthorizedResponse('Token missing');
     }
 
-    headers['Authorization'] = `Bearer ${accessToken}`;
+    headers['Authorization'] = `Bearer ${token}`;
   }
-  
+
   try {
-    let response = await executeRequest(url, fetchOptions, headers);
+    const res = await executeRequest(url, fetchOptions, headers);
 
-    if (response.status === 401 && requireAuth !== false && !isRefreshEndpoint(cleanEndpoint)) {
-      const refreshed = await refreshAccessTokenSingleFlight(baseUrl, basePath, currentLocale);
-      if (!refreshed) {
-        return buildUnauthorizedResponse<T>('TOKEN_EXPIRED', 'Session expired, please login again');
-      }
-
-      const refreshedAccessToken = tokenStorage.getAccessToken();
-      if (!refreshedAccessToken) {
-        return buildUnauthorizedResponse<T>('TOKEN_MISSING', 'Authentication token is missing');
-      }
-
-      headers['Authorization'] = `Bearer ${refreshedAccessToken}`;
-      response = await executeRequest(url, fetchOptions, headers);
-    }
-
-    const requestId = response.headers.get('x-request-id') || `req_${Date.now()}`;
-
-    // Some endpoints (e.g. void actions) intentionally return 204 with no response body.
-    if (response.status === 204) {
+    if (res.status === 204) {
       return {
         success: true,
         timestamp: new Date().toISOString(),
-        request_id: requestId,
+        request_id: `req_${Date.now()}`,
       };
     }
-    
-    // Check if response has content
-    const contentType = response.headers.get('content-type');
-    let data: ApiResponse<T>;
-    
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json() as ApiResponse<T>;
-      // Handle non-2xx status codes
-      if (!response.ok) {
-        // If response has error structure, return it
-        if (data.error) {
-          return data;
-        }
 
-        // Otherwise, create a generic error response
-        const error: ApiError = {
-          code: `HTTP_${response.status}`,
-          message: response.statusText || 'An error occurred',
-          message_en: response.statusText || 'An error occurred',
-        };
+    const data = await res.json();
 
-        return {
-          success: false,
-          error,
-          timestamp: new Date().toISOString(),
-          request_id: requestId,
-        };
-      }
-
+    if (!res.ok) {
       return data;
     }
 
-    // For successful non-JSON responses, treat as success (empty data payload).
-    if (response.ok) {
-      return {
-        success: true,
-        timestamp: new Date().toISOString(),
-        request_id: requestId,
-      };
-    } else {
-      // If response is not JSON, create error response
-      const text = await response.text();
-      const error: ApiError = {
-        code: `HTTP_${response.status}`,
-        message: text || response.statusText || 'An error occurred',
-        message_en: text || response.statusText || 'An error occurred',
-      };
-      
-      return {
-        success: false,
-        error,
-        timestamp: new Date().toISOString(),
-        request_id: requestId,
-      };
-    }
-  } catch (error) {
-    // Handle network errors
-    const apiError: ApiError = {
-      code: 'NETWORK_ERROR',
-      message: error instanceof Error ? error.message : 'Network error occurred',
-      message_en: error instanceof Error ? error.message : 'Network error occurred',
-    };
-    
+    return data;
+  } catch (err) {
     return {
       success: false,
-      error: apiError,
+      error: {
+        code: 'NETWORK_ERROR',
+        message: err instanceof Error ? err.message : 'Network error',
+        message_en: 'Network error',
+      },
       timestamp: new Date().toISOString(),
       request_id: `req_${Date.now()}`,
     };
@@ -338,70 +233,39 @@ async function apiRequest<T>(
 }
 
 /**
- * Login API call
+ * =========================
+ * AUTH
+ * =========================
  */
+
 export async function login(
   credentials: LoginRequest
 ): Promise<LoginResponse> {
-  const response = await apiRequest<LoginResponseData>(
-    'auth/login',
-    {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-      requireAuth: false,
-    }
-  );
-  
-  // If login successful, store tokens
-  if (response.success && response.data) {
-    const { user, access_token, refresh_token, expires_in, token_type } = response.data;
+  const res = await apiRequest<LoginResponseData>('auth/login', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+    requireAuth: false,
+  });
+
+  if (res.success && res.data) {
     tokenStorage.setTokens(
-      { access_token, refresh_token, expires_in, token_type },
-      user,
-      response.meta?.tenant_id
+      {
+        access_token: res.data.access_token,
+        refresh_token: res.data.refresh_token,
+        expires_in: res.data.expires_in,
+        token_type: res.data.token_type,
+      },
+      res.data.user
     );
   }
-  
-  return response as LoginResponse;
+
+  return res as LoginResponse;
 }
 
-/**
- * Logout - clear tokens
- */
-export function logout(): void {
+export function logout() {
   tokenStorage.clear();
 }
 
-/**
- * Check if user is authenticated
- */
 export function isAuthenticated(): boolean {
-  const token = tokenStorage.getAccessToken();
-  if (!token) return false;
-  
-  // Check if token is expired
-  if (tokenStorage.isTokenExpired()) {
-    tokenStorage.clear();
-    return false;
-  }
-  
-  return true;
+  return !!tokenStorage.getAccessToken();
 }
-
-/**
- * Get current user from storage
- */
-export function getCurrentUser() {
-  return tokenStorage.getUser();
-}
-
-/**
- * Get access token for API calls
- */
-export function getAccessToken(): string | null {
-  return tokenStorage.getAccessToken();
-}
-
-// Export apiRequest and utilities for future use
-export { apiRequest, getApiBaseUrl, getApiBasePath };
-
