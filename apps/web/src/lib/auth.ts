@@ -1,7 +1,7 @@
 import NextAuth from "next-auth"
 import type { NextAuthConfig } from "next-auth"
 import { routing } from '@/i18n/routing'
-import { isAuthenticated, getCurrentUser } from './api'
+import { isAuthenticated } from './api'
 import { tokenStorage } from './token'
 
 export const authConfig = {
