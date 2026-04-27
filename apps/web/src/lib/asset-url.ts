@@ -33,7 +33,7 @@ function normalizeUploadsPath(value: string): string {
 
 function getApiBaseUrl(): string {
   const configuredUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-  return normalizeBaseUrl(configuredUrl || 'http://localhost:8080');
+  return normalizeBaseUrl(configuredUrl || '');
 }
 
 export function resolveAssetUrl(rawUrl?: string | null): string | undefined {
