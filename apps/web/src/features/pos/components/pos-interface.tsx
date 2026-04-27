@@ -2,13 +2,20 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, Search, ShoppingCart, Trash2, Wallet } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Search, ShoppingCart, Trash2, Wallet } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { usePOS } from '../hooks/use-pos';
 import { POSProductGrid } from './pos-product-grid';
 import { POSCart } from './pos-cart';
@@ -24,9 +31,10 @@ export function POSInterface() {
   const t = useTranslations('pos');
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<'all' | string>('all');
   const [productOrder, setProductOrder] = useState<string[]>([]);
-  const [isReorderMode, setIsReorderMode] = useState(false);
+  const [draftProductOrder, setDraftProductOrder] = useState<string[]>([]);
   const hasForcedSidebarClosed = useRef(false);
   const { setOpen } = useSidebar();
   const {
@@ -166,20 +174,66 @@ export function POSInterface() {
     });
   }, [products, selectedCategoryId, debouncedSearch, productOrder]);
 
-  const handleReorderProducts = (sourceProductId: string, targetProductId: string) => {
-    setProductOrder((prev) => {
-      const baseOrder = prev.length > 0 ? [...prev] : [...productIds];
-      const sourceIndex = baseOrder.indexOf(sourceProductId);
-      const targetIndex = baseOrder.indexOf(targetProductId);
+  const orderedProducts = useMemo(() => {
+    if (products.length <= 1 || productOrder.length === 0) {
+      return products;
+    }
 
-      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    const indexMap = new Map(productOrder.map((id, index) => [id, index]));
+    return [...products].sort((a, b) => {
+      const aIndex = indexMap.get(a?.id ?? '') ?? Number.MAX_SAFE_INTEGER;
+      const bIndex = indexMap.get(b?.id ?? '') ?? Number.MAX_SAFE_INTEGER;
+      return aIndex - bIndex;
+    });
+  }, [products, productOrder]);
+
+  const reorderRows = useMemo(() => {
+    const rowMap = new Map(orderedProducts.map((product) => [product.id, product]));
+    const rows = draftProductOrder
+      .map((id) => rowMap.get(id))
+      .filter((product): product is NonNullable<typeof product> => Boolean(product));
+
+    return rows;
+  }, [orderedProducts, draftProductOrder]);
+
+  const openReorderModal = () => {
+    const baseOrder = productOrder.length > 0 ? [...productOrder] : [...productIds];
+    const availableIds = new Set(productIds);
+    const normalized = baseOrder.filter((id) => availableIds.has(id));
+    const normalizedSet = new Set(normalized);
+    const missingIds = productIds.filter((id) => !normalizedSet.has(id));
+    const nextDraftOrder = [...normalized, ...missingIds];
+
+    setDraftProductOrder(nextDraftOrder);
+    setIsReorderModalOpen(true);
+  };
+
+  const moveDraftProduct = (productId: string, direction: 'up' | 'down') => {
+    setDraftProductOrder((prev) => {
+      const nextOrder = [...prev];
+      const sourceIndex = nextOrder.indexOf(productId);
+
+      if (sourceIndex < 0) {
         return prev;
       }
 
-      const [moved] = baseOrder.splice(sourceIndex, 1);
-      baseOrder.splice(targetIndex, 0, moved);
-      return baseOrder;
+      const targetIndex = direction === 'up' ? sourceIndex - 1 : sourceIndex + 1;
+      if (targetIndex < 0 || targetIndex >= nextOrder.length) {
+        return prev;
+      }
+
+      const [moved] = nextOrder.splice(sourceIndex, 1);
+      nextOrder.splice(targetIndex, 0, moved);
+      return nextOrder;
     });
+  };
+
+  const handleSaveReorder = () => {
+    if (draftProductOrder.length > 0) {
+      setProductOrder(draftProductOrder);
+    }
+
+    setIsReorderModalOpen(false);
   };
 
   const outletId = useMemo(
@@ -311,17 +365,14 @@ export function POSInterface() {
             <div className="mt-3 flex items-center justify-end">
               <Button
                 type="button"
-                size="sm"
-                variant={isReorderMode ? 'default' : 'outline'}
-                onClick={() => setIsReorderMode((prev) => !prev)}
+                size="lg"
+                variant="outline"
+                onClick={openReorderModal}
+                className="h-12 px-6 text-base font-semibold"
               >
-                {isReorderMode ? t('doneReorder') : t('editOrder')}
+                {t('editOrder')}
               </Button>
             </div>
-
-            {isReorderMode && (
-              <p className="mt-2 text-xs text-muted-foreground">{t('reorderHint')}</p>
-            )}
 
             <div className="mt-3 overflow-x-auto pb-1">
               <div className="flex w-max items-center gap-2">
@@ -356,13 +407,84 @@ export function POSInterface() {
               products={filteredProducts}
               isLoading={isLoadingProducts}
               onProductClick={addToCart}
-              onReorderProducts={handleReorderProducts}
-              isReorderMode={isReorderMode}
               isCheckoutLocked={hasPendingSale}
             />
           </div>
         </div>
       </div>
+
+      <Dialog open={isReorderModalOpen} onOpenChange={setIsReorderModalOpen}>
+        <DialogContent className="max-h-[85dvh] overflow-hidden p-0 sm:max-w-2xl">
+          <DialogHeader className="border-b px-5 pt-5 pb-4">
+            <DialogTitle>{t('reorderModalTitle')}</DialogTitle>
+            <DialogDescription>{t('reorderModalDescription')}</DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[55dvh] overflow-y-auto px-5 py-4">
+            <div className="overflow-hidden rounded-lg border">
+              {reorderRows.map((product, index) => {
+                const rowNumber = index + 1;
+                const isFirst = index === 0;
+                const isLast = index === reorderRows.length - 1;
+
+                return (
+                  <div
+                    key={product.id}
+                    className="flex items-center gap-3 border-b bg-background px-3 py-3 last:border-b-0"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-semibold text-muted-foreground">
+                      {rowNumber}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-foreground">{product.name}</p>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="h-9 px-3"
+                        disabled={isFirst}
+                        onClick={() => moveDraftProduct(product.id, 'up')}
+                      >
+                        <ArrowUp className="mr-1 h-4 w-4" />
+                        {t('moveUp')}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="h-9 px-3"
+                        disabled={isLast}
+                        onClick={() => moveDraftProduct(product.id, 'down')}
+                      >
+                        <ArrowDown className="mr-1 h-4 w-4" />
+                        {t('moveDown')}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <DialogFooter className="border-t px-5 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsReorderModalOpen(false)}
+            >
+              {t('cancel')}
+            </Button>
+            <Button type="button" onClick={handleSaveReorder}>
+              {t('saveOrder')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {itemCount > 0 && !isMobileCartOpen && (
         <div className="fixed right-4 bottom-20 z-40 flex items-center gap-2 sm:bottom-24 lg:bottom-4">
