@@ -16,6 +16,7 @@ import { PaymentSection } from './payment-section';
 import { useDebounce } from '@/hooks/use-debounce';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
+import { useSidebar } from '@/components/ui/sidebar';
 
 const POS_PRODUCT_ORDER_STORAGE_KEY = 'gipos-pos-product-order';
 
@@ -25,6 +26,7 @@ export function POSInterface() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<'all' | string>('all');
   const [productOrder, setProductOrder] = useState<string[]>([]);
+  const { setOpen } = useSidebar();
   const {
     searchQuery,
     setSearchQuery,
@@ -51,6 +53,10 @@ export function POSInterface() {
     () => products.map((product) => product?.id).filter((id): id is string => Boolean(id)),
     [products]
   );
+
+  useEffect(() => {
+    setOpen(false);
+  }, [setOpen]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -278,7 +284,11 @@ export function POSInterface() {
 
   return (
     <>
-      <div className="grid h-[calc(100dvh-4rem)] min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(18rem,32%)] xl:grid-cols-[minmax(0,1fr)_minmax(20rem,30%)] 2xl:grid-cols-[minmax(0,1fr)_minmax(22rem,28%)]">
+      <div className="grid h-[calc(100dvh-4rem)] min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(16rem,32%)_minmax(0,1fr)] xl:grid-cols-[minmax(18rem,30%)_minmax(0,1fr)] 2xl:grid-cols-[minmax(20rem,28%)_minmax(0,1fr)]">
+        <aside className="hidden min-h-0 border-r bg-background lg:sticky lg:top-0 lg:h-[calc(100dvh-4rem)] lg:flex-col lg:flex">
+          {renderCartPanel({ withCheckoutInset: true })}
+        </aside>
+
         <div className="flex min-w-0 min-h-0 flex-col overflow-hidden p-3 sm:p-4 lg:p-5">
           <div className="mb-3 shrink-0 sm:mb-4">
             <div className="relative">
@@ -329,10 +339,6 @@ export function POSInterface() {
             />
           </div>
         </div>
-
-        <aside className="hidden min-h-0 border-l bg-background lg:sticky lg:top-0 lg:h-[calc(100dvh-4rem)] lg:flex-col lg:flex">
-          {renderCartPanel({ withCheckoutInset: true })}
-        </aside>
       </div>
 
       {itemCount > 0 && !isMobileCartOpen && (
