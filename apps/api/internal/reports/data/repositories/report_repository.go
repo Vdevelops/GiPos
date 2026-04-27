@@ -87,6 +87,9 @@ type ReportRepository struct {
 // Prevent concurrent warm-up refresh from creating duplicate aggregate rows.
 var refreshDateRangeMutex sync.Mutex
 
+// localDateExpr converts s.created_at (UTC) to a DATE in WIB (Asia/Jakarta).
+const localDateExpr = "DATE(s.created_at AT TIME ZONE 'Asia/Jakarta')"
+
 func NewReportRepository(db *gorm.DB) *ReportRepository {
 	return &ReportRepository{db: db}
 }
@@ -96,6 +99,11 @@ func (r *ReportRepository) getExecutor(tx *gorm.DB) *gorm.DB {
 		return tx
 	}
 	return r.db
+}
+
+// localDateFilter adds a WHERE clause filtering sales by their local (WIB) date.
+func localDateFilter(q *gorm.DB, startDate, endDate string) *gorm.DB {
+	return q.Where(localDateExpr+" >= ? AND "+localDateExpr+" <= ?", startDate, endDate)
 }
 
 // RefreshDailyAggregatesForSale refreshes summary tables for a sale's date and outlet.
@@ -135,7 +143,7 @@ func (r *ReportRepository) RefreshDateRange(tx *gorm.DB, tenantID uint, outletID
 // RefreshDailyAggregates rebuilds all daily aggregate tables for a specific day and outlet.
 func (r *ReportRepository) RefreshDailyAggregates(db *gorm.DB, tenantID uint, outletID *uint, reportDate time.Time) error {
 	dayStart := time.Date(reportDate.Year(), reportDate.Month(), reportDate.Day(), 0, 0, 0, 0, time.UTC)
-	dayEnd := dayStart.AddDate(0, 0, 1)
+	reportDateStr := dayStart.Format("2006-01-02")
 	now := time.Now().UTC()
 
 	summaryDelete := db.Where("tenant_id = ? AND report_date = ?", tenantID, dayStart)
@@ -160,10 +168,12 @@ func (r *ReportRepository) RefreshDailyAggregates(db *gorm.DB, tenantID uint, ou
 		return err
 	}
 
-	completedSales := db.Table("sales s").
-		Where("s.tenant_id = ? AND s.deleted_at IS NULL", tenantID).
-		Where("s.status = ? AND s.payment_status = ?", salesModels.SaleStatusCompleted, salesModels.PaymentStatusCompleted).
-		Where("s.created_at >= ? AND s.created_at < ?", dayStart, dayEnd)
+	completedSales := localDateFilter(
+		db.Table("sales s").
+			Where("s.tenant_id = ? AND s.deleted_at IS NULL", tenantID).
+			Where("s.status = ? AND s.payment_status = ?", salesModels.SaleStatusCompleted, salesModels.PaymentStatusCompleted),
+		reportDateStr, reportDateStr,
+	)
 	if outletID != nil {
 		completedSales = completedSales.Where("s.outlet_id = ?", *outletID)
 	}
@@ -182,7 +192,7 @@ func (r *ReportRepository) RefreshDailyAggregates(db *gorm.DB, tenantID uint, ou
 		Joins("JOIN sales s ON s.id = si.sale_id AND s.tenant_id = si.tenant_id AND s.deleted_at IS NULL").
 		Where("si.tenant_id = ? AND si.deleted_at IS NULL", tenantID).
 		Where("s.status = ? AND s.payment_status = ?", salesModels.SaleStatusCompleted, salesModels.PaymentStatusCompleted).
-		Where("s.created_at >= ? AND s.created_at < ?", dayStart, dayEnd)
+		Where(localDateExpr+" = ?", reportDateStr)
 	if outletID != nil {
 		itemsAggQuery = itemsAggQuery.Where("s.outlet_id = ?", *outletID)
 	}
@@ -219,7 +229,7 @@ func (r *ReportRepository) RefreshDailyAggregates(db *gorm.DB, tenantID uint, ou
 		Joins("LEFT JOIN categories c ON c.id = p.category_id AND c.tenant_id = si.tenant_id AND c.deleted_at IS NULL").
 		Where("si.tenant_id = ? AND si.deleted_at IS NULL", tenantID).
 		Where("s.status = ? AND s.payment_status = ?", salesModels.SaleStatusCompleted, salesModels.PaymentStatusCompleted).
-		Where("s.created_at >= ? AND s.created_at < ?", dayStart, dayEnd)
+		Where(localDateExpr+" = ?", reportDateStr)
 	if outletID != nil {
 		topQuery = topQuery.Where("s.outlet_id = ?", *outletID)
 	}
@@ -266,7 +276,7 @@ func (r *ReportRepository) RefreshDailyAggregates(db *gorm.DB, tenantID uint, ou
 	paymentQuery := db.Table("sales s").
 		Where("s.tenant_id = ? AND s.deleted_at IS NULL", tenantID).
 		Where("s.status = ? AND s.payment_status = ?", salesModels.SaleStatusCompleted, salesModels.PaymentStatusCompleted).
-		Where("s.created_at >= ? AND s.created_at < ?", dayStart, dayEnd)
+		Where(localDateExpr+" = ?", reportDateStr)
 	if outletID != nil {
 		paymentQuery = paymentQuery.Where("s.outlet_id = ?", *outletID)
 	}
@@ -333,7 +343,7 @@ func (r *ReportRepository) GetSummaryFromRaw(filters ReportFilters) (*ReportSumm
 		Joins("LEFT JOIN products p ON p.id = si.product_id AND p.tenant_id = si.tenant_id AND p.deleted_at IS NULL").
 		Where("si.tenant_id = ? AND si.deleted_at IS NULL", filters.TenantID).
 		Where("s.status = ? AND s.payment_status = ?", salesModels.SaleStatusCompleted, salesModels.PaymentStatusCompleted).
-		Where("s.created_at >= ? AND s.created_at <= ?", filters.StartDate, filters.EndDate)
+		Where(localDateExpr+" >= ? AND "+localDateExpr+" <= ?", filters.StartDate.Format("2006-01-02"), filters.EndDate.Format("2006-01-02"))
 
 	if filters.OutletID != nil {
 		query = query.Where("s.outlet_id = ?", *filters.OutletID)
@@ -399,7 +409,7 @@ func (r *ReportRepository) GetSalesSeriesFromRaw(filters ReportFilters, rangeTyp
 		Joins("LEFT JOIN products p ON p.id = si.product_id AND p.tenant_id = si.tenant_id AND p.deleted_at IS NULL").
 		Where("si.tenant_id = ? AND si.deleted_at IS NULL", filters.TenantID).
 		Where("s.status = ? AND s.payment_status = ?", salesModels.SaleStatusCompleted, salesModels.PaymentStatusCompleted).
-		Where("s.created_at >= ? AND s.created_at <= ?", filters.StartDate, filters.EndDate)
+		Where(localDateExpr+" >= ? AND "+localDateExpr+" <= ?", filters.StartDate.Format("2006-01-02"), filters.EndDate.Format("2006-01-02"))
 	if filters.OutletID != nil {
 		query = query.Where("s.outlet_id = ?", *filters.OutletID)
 	}
@@ -462,7 +472,7 @@ func (r *ReportRepository) GetProductSales(filters ReportFilters, search, sortBy
 		Joins("JOIN sales s ON s.id = si.sale_id AND s.tenant_id = si.tenant_id AND s.deleted_at IS NULL").
 		Where("si.tenant_id = ? AND si.deleted_at IS NULL", filters.TenantID).
 		Where("s.status = ? AND s.payment_status = ?", salesModels.SaleStatusCompleted, salesModels.PaymentStatusCompleted).
-		Where("s.created_at >= ? AND s.created_at <= ?", filters.StartDate, filters.EndDate)
+		Where(localDateExpr+" >= ? AND "+localDateExpr+" <= ?", filters.StartDate.Format("2006-01-02"), filters.EndDate.Format("2006-01-02"))
 
 	if filters.OutletID != nil {
 		salesAgg = salesAgg.Where("s.outlet_id = ?", *filters.OutletID)
@@ -561,7 +571,7 @@ func (r *ReportRepository) GetPaymentMethodsFromRaw(filters ReportFilters) ([]Re
 		Joins("LEFT JOIN products p ON p.id = si.product_id AND p.tenant_id = si.tenant_id AND p.deleted_at IS NULL").
 		Where("si.tenant_id = ? AND si.deleted_at IS NULL", filters.TenantID).
 		Where("s.status = ? AND s.payment_status = ?", salesModels.SaleStatusCompleted, salesModels.PaymentStatusCompleted).
-		Where("s.created_at >= ? AND s.created_at <= ?", filters.StartDate, filters.EndDate)
+		Where(localDateExpr+" >= ? AND "+localDateExpr+" <= ?", filters.StartDate.Format("2006-01-02"), filters.EndDate.Format("2006-01-02"))
 	if filters.OutletID != nil {
 		query = query.Where("s.outlet_id = ?", *filters.OutletID)
 	}
@@ -587,7 +597,7 @@ func (r *ReportRepository) CountCompletedSales(filters ReportFilters) (int64, er
 	query := r.db.Table("sales s").
 		Where("s.tenant_id = ? AND s.deleted_at IS NULL", filters.TenantID).
 		Where("s.status = ? AND s.payment_status = ?", salesModels.SaleStatusCompleted, salesModels.PaymentStatusCompleted).
-		Where("s.created_at >= ? AND s.created_at <= ?", filters.StartDate, filters.EndDate)
+		Where(localDateExpr+" >= ? AND "+localDateExpr+" <= ?", filters.StartDate.Format("2006-01-02"), filters.EndDate.Format("2006-01-02"))
 
 	if filters.OutletID != nil {
 		query = query.Where("s.outlet_id = ?", *filters.OutletID)
@@ -606,7 +616,7 @@ func (r *ReportRepository) GetConsistencyIssues(filters ReportFilters, limit int
 		Joins("LEFT JOIN sale_items si ON si.sale_id = s.id AND si.tenant_id = s.tenant_id AND si.deleted_at IS NULL").
 		Where("s.tenant_id = ? AND s.deleted_at IS NULL", filters.TenantID).
 		Where("s.status = ? AND s.payment_status = ?", salesModels.SaleStatusCompleted, salesModels.PaymentStatusCompleted).
-		Where("s.created_at >= ? AND s.created_at <= ?", filters.StartDate, filters.EndDate)
+		Where(localDateExpr+" >= ? AND "+localDateExpr+" <= ?", filters.StartDate.Format("2006-01-02"), filters.EndDate.Format("2006-01-02"))
 
 	if filters.OutletID != nil {
 		base = base.Where("s.outlet_id = ?", *filters.OutletID)
@@ -663,15 +673,16 @@ func periodExprForAggregates(rangeType string) (string, error) {
 }
 
 func periodExprForRaw(rangeType string) (string, error) {
+	localTSExpr := "(s.created_at AT TIME ZONE 'Asia/Jakarta')"
 	switch rangeType {
 	case "hourly":
-		return "DATE_TRUNC('hour', s.created_at)", nil
+		return "DATE_TRUNC('hour', " + localTSExpr + ")", nil
 	case "daily":
-		return "DATE(s.created_at)", nil
+		return "DATE(" + localTSExpr + ")", nil
 	case "monthly":
-		return "DATE_TRUNC('month', s.created_at)", nil
+		return "DATE_TRUNC('month', " + localTSExpr + ")", nil
 	case "yearly":
-		return "DATE_TRUNC('year', s.created_at)", nil
+		return "DATE_TRUNC('year', " + localTSExpr + ")", nil
 	default:
 		return "", fmt.Errorf("unsupported range type")
 	}

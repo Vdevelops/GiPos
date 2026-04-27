@@ -132,6 +132,19 @@ export interface ReportTransactionItem {
   total: number;
 }
 
+export interface UpdateReportTransactionItemRequest {
+  product_id: string;
+  quantity: number;
+  unit_price?: number;
+  discount_amount?: number;
+}
+
+export interface UpdateReportTransactionRequest {
+  notes?: string | null;
+  payment_method?: 'cash' | 'qris';
+  items?: UpdateReportTransactionItemRequest[];
+}
+
 export interface ReportTransactionPayment {
   id: string;
   method: string;
@@ -165,6 +178,7 @@ export interface ReportTransaction {
   payment_method: string;
   payment_status: string;
   status: string;
+  notes?: string | null;
   created_at: string;
   paid_at?: string | null;
   completed_at?: string | null;
@@ -192,3 +206,4 @@ export type ReportPaymentMethodsResponse = ApiResponse<ReportPaymentMethods>;
 export type ReportConsistencyCheckResponse = ApiResponse<ReportConsistencyCheck>;
 export type ReportTransactionsResponse = ApiResponse<ReportTransaction[]>;
 export type ReportTransactionResponse = ApiResponse<ReportTransaction>;
+export type UpdateReportTransactionResponse = ApiResponse<ReportTransaction>;

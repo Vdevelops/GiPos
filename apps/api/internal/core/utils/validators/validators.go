@@ -39,8 +39,8 @@ func ParseValidationErrors(c *gin.Context, err error) []response.FieldError {
 		fieldErrors = append(fieldErrors, response.FieldError{
 			Field:     "general",
 			Code:      "VALIDATION_ERROR",
-			Message:   "Data tidak valid",
-			MessageEn: "Invalid data",
+			Message:   "Data tidak valid: " + err.Error(),
+			MessageEn: "Invalid data: " + err.Error(),
 		})
 	}
 

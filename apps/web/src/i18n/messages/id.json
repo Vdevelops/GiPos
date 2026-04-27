@@ -30,6 +30,7 @@
     "close": "Tutup",
     "create": "Buat",
     "update": "Perbarui",
+    "amount": "Jumlah",
     "yes": "Ya",
     "no": "Tidak"
   },
@@ -40,5 +41,21 @@
     "deleteConfirm": "Hapus",
     "confirmTitle": "Konfirmasi Tindakan",
     "confirmButton": "Konfirmasi"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "pos": "Kasir (POS)",
+    "products": "Produk & Inventori",
+    "customers": "Pelanggan",
+    "reports": "Laporan & Analitik",
+    "finance": "Pembelian / Pengeluaran",
+    "employees": "Karyawan & Akses",
+    "outlets": "Multi Outlet",
+    "integrations": "Integrasi Eksternal",
+    "premium": "Fitur Premium",
+    "settings": "Pengaturan",
+    "help": "Bantuan",
+    "profile": "Profil",
+    "billing": "Tagihan"
   }
 }

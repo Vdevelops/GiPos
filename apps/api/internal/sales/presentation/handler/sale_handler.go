@@ -52,7 +52,7 @@ func (h *SaleHandler) CreateSale(c *gin.Context) {
 
 	meta := response.GetMetaFromContext(c)
 	meta.TenantID = tenantID.(string)
-	meta.OutletID = req.OutletID
+	meta.OutletID = saleResponse.OutletID
 	meta.CreatedBy = userID.(string)
 	response.SuccessCreated(c, saleResponse, meta)
 }
@@ -68,6 +68,35 @@ func (h *SaleHandler) GetSale(c *gin.Context) {
 	}
 
 	saleResponse, err := h.saleUsecase.GetSaleByID(tenantID.(string), id)
+	if err != nil {
+		errorCode := err.Error()
+		errors.Error(c, errorCode, nil, nil)
+		return
+	}
+
+	meta := response.GetMetaFromContext(c)
+	meta.TenantID = tenantID.(string)
+	response.Success(c, saleResponse, meta)
+}
+
+// UpdateSale handles PUT /api/v1/sales/:id
+func (h *SaleHandler) UpdateSale(c *gin.Context) {
+	id := c.Param("id")
+
+	var req dto.UpdateSaleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fieldErrors := validators.ParseValidationErrors(c, err)
+		errors.ValidationError(c, fieldErrors)
+		return
+	}
+
+	tenantID, exists := c.Get("tenant_id")
+	if !exists {
+		errors.Unauthorized(c, "Tenant ID is required")
+		return
+	}
+
+	saleResponse, err := h.saleUsecase.UpdateSale(tenantID.(string), id, &req)
 	if err != nil {
 		errorCode := err.Error()
 		errors.Error(c, errorCode, nil, nil)

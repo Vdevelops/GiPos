@@ -2,7 +2,7 @@ package dto
 
 // CreateSaleRequest represents the request to create a sale
 type CreateSaleRequest struct {
-	OutletID        string                `json:"outlet_id" binding:"required"`
+	OutletID        string                `json:"outlet_id,omitempty"`
 	ShiftID         *string               `json:"shift_id,omitempty"`
 	CustomerID      *string               `json:"customer_id,omitempty"`
 	Items           []CreateSaleItemRequest `json:"items" binding:"required,min=1,dive"`
@@ -23,8 +23,10 @@ type CreateSaleItemRequest struct {
 
 // UpdateSaleRequest represents the request to update a sale (for void/refund)
 type UpdateSaleRequest struct {
-	Status *string `json:"status,omitempty" binding:"omitempty,oneof=pending completed cancelled refunded"`
-	Notes  *string `json:"notes,omitempty"`
+	Status        *string                 `json:"status,omitempty" binding:"omitempty,oneof=pending completed cancelled refunded"`
+	Notes         *string                 `json:"notes,omitempty"`
+	PaymentMethod *string                 `json:"payment_method,omitempty" binding:"omitempty,oneof=cash qris"`
+	Items         []CreateSaleItemRequest `json:"items,omitempty" binding:"omitempty,min=1,dive"`
 }
 
 // SaleResponse represents a sale in the response

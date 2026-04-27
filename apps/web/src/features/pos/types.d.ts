@@ -58,7 +58,7 @@ export interface SaleCashier {
 
 // Sale Request Types
 export interface CreateSaleRequest {
-  outlet_id: string;
+  outlet_id?: string;
   shift_id?: string | null;
   customer_id?: string | null;
   items: CreateSaleItemRequest[];

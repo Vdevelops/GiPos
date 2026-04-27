@@ -21,7 +21,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, breadcrumbItems }: PageHeaderProps) {
   return (
-    <header className="flex min-h-20 shrink-0 items-center gap-3 border-b border-border/70 px-4 py-3 md:px-6">
+    <header className="flex min-h-20 shrink-0 items-center gap-3 border-b border-border/70 px-4 py-3 md:px-6 print:hidden">
       <SidebarTrigger className="-ml-1" />
       <Separator
         orientation="vertical"

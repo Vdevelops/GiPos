@@ -9,6 +9,8 @@ import type { CartItem } from '../components/pos-cart';
 
 type PaymentMethod = 'cash' | 'qris';
 
+const POS_CART_STORAGE_KEY = 'gipos-pos-cart';
+
 interface PendingSale {
   id: string;
   total: number;
@@ -49,6 +51,50 @@ export function usePOS() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [pendingSale, setPendingSale] = useState<PendingSale | null>(null);
   const [isWednesdayDiscountEnabled, setIsWednesdayDiscountEnabled] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const storedCart = window.localStorage.getItem(POS_CART_STORAGE_KEY);
+      if (!storedCart) {
+        return;
+      }
+
+      const parsed = JSON.parse(storedCart);
+      if (!Array.isArray(parsed)) {
+        return;
+      }
+
+      const hydratedCart = parsed.filter((item): item is CartItem => {
+        return (
+          Boolean(item) &&
+          typeof item === 'object' &&
+          typeof item.quantity === 'number' &&
+          item.quantity > 0 &&
+          Boolean(item.product?.id)
+        );
+      });
+
+      setCart(hydratedCart);
+    } catch (error) {
+      console.error('Failed to hydrate POS cart from localStorage:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(POS_CART_STORAGE_KEY, JSON.stringify(cart));
+    } catch (error) {
+      console.error('Failed to persist POS cart to localStorage:', error);
+    }
+  }, [cart]);
 
   const isWednesdayDiscountAvailable = useMemo(
     () => new Date().getDay() === 3,
@@ -176,7 +222,7 @@ export function usePOS() {
   // Process checkout
   const processCheckout = useCallback(
     async (
-      outletId: string,
+      outletId: string | null | undefined,
       shiftId: string | null,
       paymentMethod: PaymentMethod,
       paymentData: Record<string, unknown>
@@ -186,14 +232,11 @@ export function usePOS() {
           throw new Error('Cart is empty');
         }
 
-        const normalizedOutletId = outletId.trim();
-        if (!normalizedOutletId) {
-          throw new Error('Outlet is required to process checkout');
-        }
+        const normalizedOutletId = (outletId ?? '').trim();
+        const hasValidOutletId = /^\d+$/.test(normalizedOutletId);
 
-        if (!/^\d+$/.test(normalizedOutletId)) {
-          throw new Error('Invalid outlet selected for checkout');
-        }
+        const normalizedShiftId = (shiftId ?? '').trim();
+        const hasValidShiftId = /^\d+$/.test(normalizedShiftId);
 
         let saleId = pendingSale?.id;
         let saleTotal = pendingSale?.total ?? totals.total;
@@ -215,12 +258,16 @@ export function usePOS() {
                 : undefined,
           }));
 
-          const saleResponse = await createSaleMutation.mutateAsync({
-            outlet_id: normalizedOutletId,
-            shift_id: shiftId,
+          const saleRequestPayload = {
             items: saleItems,
             payment_method: paymentMethod,
-          });
+            ...(hasValidOutletId ? { outlet_id: normalizedOutletId } : {}),
+            ...(hasValidShiftId ? { shift_id: normalizedShiftId } : {}),
+          };
+
+          const saleResponse = await createSaleMutation.mutateAsync(
+            saleRequestPayload
+          );
 
           if (!saleResponse.success || !saleResponse.data) {
             throw new Error(saleResponse.error?.message ?? 'Failed to create sale');

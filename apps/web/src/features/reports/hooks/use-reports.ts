@@ -1,13 +1,15 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ReportService } from '../services/report.service';
 import type {
   ReportFilterQuery,
   ReportProductSalesQuery,
   ReportRange,
   ReportTransactionsQuery,
+  UpdateReportTransactionRequest,
 } from '../types/report';
+import { toast } from '@/lib/toast';
 
 const REPORT_QUERY_BEHAVIOR = {
   refetchOnMount: 'always' as const,
@@ -81,5 +83,30 @@ export function useReportTransaction(transactionID: string | null) {
     },
     enabled: !!transactionID,
     ...REPORT_QUERY_BEHAVIOR,
+  });
+}
+
+export function useUpdateReportTransaction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateReportTransactionRequest }) =>
+      ReportService.updateTransactionById(id, payload),
+    onSuccess: (response, variables) => {
+      if (!response.success) {
+        toast.error(response.error?.message || 'Gagal memperbarui transaksi');
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['sale', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'transaction', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success('Transaksi berhasil diperbarui');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Gagal memperbarui transaksi');
+    },
   });
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	sharedModels "gipos/api/internal/core/shared/models"
@@ -102,25 +103,12 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 		return nil, errors.New("INVALID_USER_ID")
 	}
 
-	// Convert outletID from string to uint
-	outletIDUint, err := stringToUint(req.OutletID)
-	if err != nil {
-		return nil, errors.New("INVALID_OUTLET_ID")
-	}
-
-	// Validate outlet exists
-	outlet, err := uc.outletRepo.GetByID(tenantIDUint, outletIDUint)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("OUTLET_NOT_FOUND")
-		}
-		return nil, errors.New("INTERNAL_SERVER_ERROR")
-	}
-
 	// Validate shift if provided
 	var shiftIDUint *uint
-	if req.ShiftID != nil && *req.ShiftID != "" {
-		shiftIDUint, err = stringPtrToUintPtr(req.ShiftID)
+	var shiftOutletIDUint *uint
+	if req.ShiftID != nil && strings.TrimSpace(*req.ShiftID) != "" {
+		normalizedShiftID := strings.TrimSpace(*req.ShiftID)
+		shiftIDUint, err = stringPtrToUintPtr(&normalizedShiftID)
 		if err != nil {
 			return nil, errors.New("INVALID_SHIFT_ID")
 		}
@@ -135,12 +123,69 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 		if shift.Status != models.ShiftStatusOpen {
 			return nil, errors.New("SHIFT_NOT_OPEN")
 		}
-		// Validate shift belongs to outlet
-		if shift.OutletID != outletIDUint {
+
+		shiftOutletIDUint = &shift.OutletID
+	}
+
+	normalizedOutletID := strings.TrimSpace(req.OutletID)
+	var outletIDUint uint
+	var outletCode string
+
+	if normalizedOutletID != "" {
+		outletIDUint, err = stringToUint(normalizedOutletID)
+		if err != nil {
+			return nil, errors.New("INVALID_OUTLET_ID")
+		}
+
+		outlet, err := uc.outletRepo.GetByID(tenantIDUint, outletIDUint)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, errors.New("OUTLET_NOT_FOUND")
+			}
+			return nil, errors.New("INTERNAL_SERVER_ERROR")
+		}
+
+		if shiftOutletIDUint != nil && *shiftOutletIDUint != outletIDUint {
 			return nil, errors.New("SHIFT_OUTLET_MISMATCH")
 		}
+
+		outletCode = outlet.Code
+	} else if shiftOutletIDUint != nil {
+		outletIDUint = *shiftOutletIDUint
+		outlet, err := uc.outletRepo.GetByID(tenantIDUint, outletIDUint)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, errors.New("OUTLET_NOT_FOUND")
+			}
+			return nil, errors.New("INTERNAL_SERVER_ERROR")
+		}
+
+		outletCode = outlet.Code
 	} else {
-		// If shift not provided, try to get open shift for outlet
+		mainOutlet, err := uc.outletRepo.GetMainOutlet(tenantIDUint)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				outlets, _, listErr := uc.outletRepo.List(tenantIDUint, 1, 0, "", "")
+				if listErr != nil {
+					return nil, errors.New("INTERNAL_SERVER_ERROR")
+				}
+				if len(outlets) == 0 {
+					return nil, errors.New("OUTLET_NOT_FOUND")
+				}
+
+				outletIDUint = outlets[0].ID
+				outletCode = outlets[0].Code
+			} else {
+				return nil, errors.New("INTERNAL_SERVER_ERROR")
+			}
+		} else {
+			outletIDUint = mainOutlet.ID
+			outletCode = mainOutlet.Code
+		}
+	}
+
+	if shiftIDUint == nil {
+		// If shift not provided, try to get open shift for outlet.
 		openShift, err := uc.shiftRepo.GetOpenShiftByOutlet(tenantIDUint, outletIDUint)
 		if err == nil && openShift != nil {
 			shiftIDUint = &openShift.ID
@@ -296,7 +341,6 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 
 	// Generate invoice number
 	dateStr := time.Now().Format("20060102")
-	outletCode := outlet.Code
 	// Get sequence number for today
 	var sequence int
 	var lastSale models.Sale
@@ -492,6 +536,265 @@ func (uc *SaleUsecase) ListSales(tenantID string, outletID *string, shiftID *str
 	}
 
 	return responses, total, nil
+}
+
+// UpdateSale edits mutable sale fields (items, payment method, notes, status) and recalculates totals.
+func (uc *SaleUsecase) UpdateSale(tenantID, id string, req *dto.UpdateSaleRequest) (*dto.SaleResponse, error) {
+	tenantIDUint, err := stringToUint(tenantID)
+	if err != nil {
+		return nil, errors.New("INVALID_TENANT_ID")
+	}
+	idUint, err := stringToUint(id)
+	if err != nil {
+		return nil, errors.New("INVALID_SALE_ID")
+	}
+
+	sale, err := uc.saleRepo.GetByID(tenantIDUint, idUint)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("SALE_NOT_FOUND")
+		}
+		return nil, errors.New("INTERNAL_SERVER_ERROR")
+	}
+
+	if sale.Status == models.SaleStatusCancelled || sale.Status == models.SaleStatusRefunded {
+		return nil, errors.New("SALE_UPDATE_NOT_ALLOWED")
+	}
+
+	oldItemsDiscount := int64(0)
+	for _, item := range sale.Items {
+		oldItemsDiscount += item.DiscountAmount
+	}
+	globalDiscount := sale.DiscountAmount - oldItemsDiscount
+	if globalDiscount < 0 {
+		globalDiscount = 0
+	}
+
+	newSaleItems := make([]models.SaleItem, 0)
+	newSubtotal := sale.Subtotal
+	newItemsDiscount := oldItemsDiscount
+	newTaxAmount := sale.TaxAmount
+
+	if len(req.Items) > 0 {
+		aggregatedItemByProduct := make(map[string]*dto.CreateSaleItemRequest, len(req.Items))
+		productOrder := make([]string, 0, len(req.Items))
+
+		for _, itemReq := range req.Items {
+			if itemReq.ProductID == "" || itemReq.Quantity <= 0 {
+				return nil, errors.New("INVALID_QUANTITY")
+			}
+
+			existing, exists := aggregatedItemByProduct[itemReq.ProductID]
+			if !exists {
+				cloned := itemReq
+				aggregatedItemByProduct[itemReq.ProductID] = &cloned
+				productOrder = append(productOrder, itemReq.ProductID)
+				continue
+			}
+
+			existing.Quantity += itemReq.Quantity
+			if existing.UnitPrice == nil && itemReq.UnitPrice != nil {
+				unitPrice := *itemReq.UnitPrice
+				existing.UnitPrice = &unitPrice
+			}
+			if itemReq.DiscountAmount != nil {
+				if existing.DiscountAmount == nil {
+					defaultDiscount := int64(0)
+					existing.DiscountAmount = &defaultDiscount
+				}
+				*existing.DiscountAmount += *itemReq.DiscountAmount
+			}
+			if itemReq.DiscountPercent != nil {
+				existing.DiscountPercent = itemReq.DiscountPercent
+			}
+		}
+
+		normalizedItems := make([]dto.CreateSaleItemRequest, 0, len(productOrder))
+		for _, productID := range productOrder {
+			normalizedItems = append(normalizedItems, *aggregatedItemByProduct[productID])
+		}
+
+		newSaleItems = make([]models.SaleItem, 0, len(normalizedItems))
+		newSubtotal = 0
+		newItemsDiscount = 0
+		newTaxAmount = 0
+
+		for _, itemReq := range normalizedItems {
+			productIDUint, convErr := stringToUint(itemReq.ProductID)
+			if convErr != nil {
+				return nil, errors.New("INVALID_PRODUCT_ID")
+			}
+
+			product, productErr := uc.productRepo.GetByID(tenantIDUint, productIDUint)
+			if productErr != nil {
+				if errors.Is(productErr, gorm.ErrRecordNotFound) {
+					return nil, errors.New("PRODUCT_NOT_FOUND")
+				}
+				return nil, errors.New("INTERNAL_SERVER_ERROR")
+			}
+
+			if product.Status != "active" {
+				return nil, errors.New("PRODUCT_INACTIVE")
+			}
+
+			unitPrice := product.Price
+			if itemReq.UnitPrice != nil {
+				if *itemReq.UnitPrice < 0 {
+					return nil, errors.New("INVALID_PRICE")
+				}
+				unitPrice = *itemReq.UnitPrice
+			}
+
+			itemSubtotal := int64(itemReq.Quantity) * unitPrice
+
+			itemDiscountAmount := int64(0)
+			if itemReq.DiscountAmount != nil {
+				itemDiscountAmount = *itemReq.DiscountAmount
+			}
+			if itemReq.DiscountPercent != nil {
+				itemDiscountAmount = int64(float64(itemSubtotal) * (*itemReq.DiscountPercent) / 100.0)
+			}
+			if itemDiscountAmount > itemSubtotal {
+				itemDiscountAmount = itemSubtotal
+			}
+
+			itemAfterDiscount := itemSubtotal - itemDiscountAmount
+
+			saleItem := models.SaleItem{
+				TenantModel: sharedModels.TenantModel{TenantID: tenantIDUint},
+				SaleID:      sale.ID,
+				ProductID:   product.ID,
+				ProductName: product.Name,
+				ProductSKU:  product.SKU,
+				Quantity:    itemReq.Quantity,
+				UnitPrice:   unitPrice,
+				DiscountAmount:  itemDiscountAmount,
+				DiscountPercent: 0,
+				TaxAmount:       0,
+				Subtotal:        itemSubtotal,
+				Total:           itemAfterDiscount,
+			}
+
+			newSaleItems = append(newSaleItems, saleItem)
+			newSubtotal += itemSubtotal
+			newItemsDiscount += itemDiscountAmount
+		}
+	}
+
+	newDiscountAmount := newItemsDiscount + globalDiscount
+	if newDiscountAmount > newSubtotal {
+		newDiscountAmount = newSubtotal
+	}
+	newTotal := newSubtotal - newDiscountAmount + newTaxAmount
+
+	err = uc.db.Transaction(func(tx *gorm.DB) error {
+		sale.Subtotal = newSubtotal
+		sale.DiscountAmount = newDiscountAmount
+		sale.TaxAmount = newTaxAmount
+		sale.Total = newTotal
+
+		if req.Notes != nil {
+			sale.Notes = strings.TrimSpace(*req.Notes)
+		}
+		if req.PaymentMethod != nil {
+			sale.PaymentMethod = strings.TrimSpace(*req.PaymentMethod)
+		}
+		if req.Status != nil {
+			sale.Status = strings.TrimSpace(*req.Status)
+		}
+
+		if len(req.Items) > 0 {
+			oldQtyByProduct := make(map[uint]int, len(sale.Items))
+			for _, oldItem := range sale.Items {
+				oldQtyByProduct[oldItem.ProductID] += oldItem.Quantity
+			}
+
+			newQtyByProduct := make(map[uint]int, len(newSaleItems))
+			for _, newItem := range newSaleItems {
+				newQtyByProduct[newItem.ProductID] += newItem.Quantity
+			}
+
+			referenceID := sale.ID
+			createdBy := sale.CashierID
+			for productID, oldQty := range oldQtyByProduct {
+				newQty := newQtyByProduct[productID]
+				delta := oldQty - newQty
+				if delta == 0 {
+					continue
+				}
+
+				if err := uc.stockService.ApplyStockChange(tx, stockService.ApplyStockChangeRequest{
+					TenantID:      tenantIDUint,
+					ProductID:     productID,
+					Delta:         delta,
+					ReferenceType: "sale_edit",
+					ReferenceID:   &referenceID,
+					Notes:         fmt.Sprintf("Sale %s item updated", sale.InvoiceNumber),
+					MovementDate:  time.Now(),
+					CreatedBy:     &createdBy,
+				}); err != nil {
+					return err
+				}
+				delete(newQtyByProduct, productID)
+			}
+
+			for productID, newQty := range newQtyByProduct {
+				if newQty == 0 {
+					continue
+				}
+				if err := uc.stockService.ApplyStockChange(tx, stockService.ApplyStockChangeRequest{
+					TenantID:      tenantIDUint,
+					ProductID:     productID,
+					Delta:         -newQty,
+					ReferenceType: "sale_edit",
+					ReferenceID:   &referenceID,
+					Notes:         fmt.Sprintf("Sale %s item added", sale.InvoiceNumber),
+					MovementDate:  time.Now(),
+					CreatedBy:     &createdBy,
+				}); err != nil {
+					return err
+				}
+			}
+
+			if err := tx.Where("tenant_id = ? AND sale_id = ?", tenantIDUint, sale.ID).Delete(&models.SaleItem{}).Error; err != nil {
+				return err
+			}
+			if len(newSaleItems) > 0 {
+				if err := tx.Create(&newSaleItems).Error; err != nil {
+					return err
+				}
+			}
+		}
+
+		if err := tx.Omit("Outlet", "Cashier", "Items", "Payment").Save(sale).Error; err != nil {
+			return err
+		}
+
+		paymentUpdates := map[string]interface{}{
+			"amount": newTotal,
+		}
+		if req.PaymentMethod != nil {
+			paymentUpdates["method"] = strings.TrimSpace(*req.PaymentMethod)
+		}
+
+		if err := tx.Model(&models.Payment{}).
+			Where("tenant_id = ? AND sale_id = ? AND deleted_at IS NULL", tenantIDUint, sale.ID).
+			Updates(paymentUpdates).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.New("INTERNAL_SERVER_ERROR")
+	}
+
+	updatedSale, err := uc.saleRepo.GetByID(tenantIDUint, idUint)
+	if err != nil {
+		return nil, errors.New("INTERNAL_SERVER_ERROR")
+	}
+
+	return toSaleResponse(updatedSale), nil
 }
 
 // VoidSale voids a sale (before payment)

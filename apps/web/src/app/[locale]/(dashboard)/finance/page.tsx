@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header"
-import { FinanceManagement } from "@/features/finance/components/finance-management"
+import { ExpenseManagement } from "@/features/finance/components/expense-management"
 import { getTranslations } from 'next-intl/server';
 
 export default async function FinancePage({
@@ -20,7 +20,7 @@ export default async function FinancePage({
         ]}
       />
       <div className="flex flex-1 flex-col gap-4 p-4">
-        <FinanceManagement />
+        <ExpenseManagement />
       </div>
     </>
   )
