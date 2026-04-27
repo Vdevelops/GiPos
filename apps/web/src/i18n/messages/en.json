@@ -30,6 +30,7 @@
     "close": "Close",
     "create": "Create",
     "update": "Update",
+    "amount": "Amount",
     "yes": "Yes",
     "no": "No"
   },
@@ -40,5 +41,21 @@
     "deleteConfirm": "Delete",
     "confirmTitle": "Confirm Action",
     "confirmButton": "Confirm"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "pos": "Point of Sale",
+    "products": "Products & Inventory",
+    "customers": "Customers",
+    "reports": "Reports & Analytics",
+    "finance": "Purchases / Expenses",
+    "employees": "Employees & Access",
+    "outlets": "Multi Outlet",
+    "integrations": "External Integrations",
+    "premium": "Premium Features",
+    "settings": "Settings",
+    "help": "Help",
+    "profile": "Profile",
+    "billing": "Billing"
   }
 }

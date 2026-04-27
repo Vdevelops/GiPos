@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Package } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/currency';
@@ -10,6 +11,7 @@ interface POSProductGridProps {
   readonly products: Product[] | undefined;
   readonly isLoading?: boolean;
   readonly onProductClick: (product: Product) => void;
+  readonly onReorderProducts?: (sourceProductId: string, targetProductId: string) => void;
   readonly isCheckoutLocked?: boolean;
 }
 
@@ -17,8 +19,12 @@ export function POSProductGrid({
   products,
   isLoading = false,
   onProductClick,
+  onReorderProducts,
   isCheckoutLocked = false,
 }: POSProductGridProps) {
+  const [draggingProductId, setDraggingProductId] = useState<string | null>(null);
+  const [dragOverProductId, setDragOverProductId] = useState<string | null>(null);
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 2xl:grid-cols-5">
@@ -52,16 +58,61 @@ export function POSProductGrid({
   return (
     <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 2xl:grid-cols-5">
       {productList.map((product) => {
+        const productId = product?.id ?? '';
         const price = product?.price ?? 0;
         const isDisabled = isCheckoutLocked;
         const imageUrl = resolveAssetUrl(product?.images?.[0]?.url);
+        const isDragging = draggingProductId === productId;
+        const isDragOver = dragOverProductId === productId;
 
         return (
           <div
-            key={product?.id ?? 'unknown'}
-            className={`min-w-0 cursor-pointer overflow-hidden rounded-xl border bg-card text-card-foreground transition-shadow hover:shadow-md ${
+            key={productId || 'unknown'}
+            draggable={Boolean(productId)}
+            className={`min-w-0 cursor-pointer overflow-hidden rounded-xl border bg-card text-card-foreground transition-all hover:shadow-md ${
               isDisabled ? 'opacity-50' : ''
+            } ${
+              isDragging ? 'scale-[0.98] opacity-60' : ''
+            } ${
+              isDragOver ? 'ring-2 ring-primary ring-offset-2' : ''
             }`}
+            onDragStart={(event) => {
+              if (!productId) {
+                return;
+              }
+              event.dataTransfer.setData('text/plain', productId);
+              event.dataTransfer.effectAllowed = 'move';
+              setDraggingProductId(productId);
+            }}
+            onDragOver={(event) => {
+              if (!productId || !draggingProductId || draggingProductId === productId) {
+                return;
+              }
+              event.preventDefault();
+              event.dataTransfer.dropEffect = 'move';
+              setDragOverProductId(productId);
+            }}
+            onDragLeave={() => {
+              setDragOverProductId((prev) => (prev === productId ? null : prev));
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              if (!productId) {
+                return;
+              }
+
+              const sourceProductId = event.dataTransfer.getData('text/plain') || draggingProductId;
+              if (!sourceProductId || sourceProductId === productId) {
+                return;
+              }
+
+              onReorderProducts?.(sourceProductId, productId);
+              setDragOverProductId(null);
+            }}
+            onDragEnd={() => {
+              setDraggingProductId(null);
+              setDragOverProductId(null);
+            }}
             onClick={() => {
               if (!isDisabled) {
                 onProductClick(product);

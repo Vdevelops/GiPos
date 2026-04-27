@@ -61,6 +61,7 @@
     "cartEmpty": "Cart is empty",
     "cartEmptyDesc": "Select products to add them to cart",
     "item": "item",
+    "clearAll": "Clear All",
     "subtotal": "Subtotal",
     "priceBeforeDiscount": "Price before discount",
     "discount": "Discount ({percent}%)",

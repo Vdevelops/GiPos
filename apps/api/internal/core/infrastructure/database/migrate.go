@@ -6,6 +6,7 @@ import (
 
 	authModels "gipos/api/internal/auth/data/models"
 	"gipos/api/internal/core/shared/models"
+	financeModels "gipos/api/internal/finance/data/models"
 	categoryModels "gipos/api/internal/master-data/category_product/data/models"
 	outletModels "gipos/api/internal/master-data/outlet/data/models"
 	productModels "gipos/api/internal/master-data/products/data/models"
@@ -56,6 +57,12 @@ func AllModels() []interface{} {
 		&reportModels.DailySummary{},
 		&reportModels.DailyTopProduct{},
 		&reportModels.DailyPaymentMethod{},
+
+		// Finance
+		&financeModels.OpeningBalance{},
+		&financeModels.ExpenseEntry{},
+		&financeModels.ExpenseItem{},
+		&financeModels.FixedExpenseComponent{},
 	}
 }
 
@@ -124,6 +131,10 @@ func AutoMigrate() error {
 		"CREATE INDEX IF NOT EXISTS idx_report_daily_summaries_lookup ON report_daily_summaries (tenant_id, report_date, outlet_id)",
 		"CREATE INDEX IF NOT EXISTS idx_report_daily_top_products_lookup ON report_daily_top_products (tenant_id, report_date, outlet_id, product_id, category_id)",
 		"CREATE INDEX IF NOT EXISTS idx_report_daily_payment_methods_lookup ON report_daily_payment_methods (tenant_id, report_date, outlet_id, payment_method)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_finance_opening_balances_tenant_unique ON finance_opening_balances (tenant_id) WHERE deleted_at IS NULL",
+		"CREATE INDEX IF NOT EXISTS idx_finance_expense_entries_lookup ON finance_expense_entries (tenant_id, entry_date, kind)",
+		"CREATE INDEX IF NOT EXISTS idx_finance_expense_items_lookup ON finance_expense_items (tenant_id, entry_id)",
+		"CREATE INDEX IF NOT EXISTS idx_finance_fixed_components_lookup ON finance_fixed_expense_components (tenant_id, sort_order)",
 	}
 
 	for _, stmt := range criticalIndexes {

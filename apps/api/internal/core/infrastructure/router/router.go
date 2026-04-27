@@ -6,6 +6,7 @@ import (
 	"gipos/api/internal/core/infrastructure/config"
 	"gipos/api/internal/core/infrastructure/database"
 	"gipos/api/internal/core/middleware"
+	financeRouter "gipos/api/internal/finance/presentation/router"
 	categoryRouter "gipos/api/internal/master-data/category_product/presentation/router"
 	outletRouter "gipos/api/internal/master-data/outlet/presentation/router"
 	productRouter "gipos/api/internal/master-data/products/presentation/router"
@@ -66,6 +67,9 @@ func SetupRoutes(router *gin.Engine) {
 
 		// Reports routes
 		reportsRouter.SetupReportsRoutes(v1)
+
+		// Finance routes
+		financeRouter.SetupFinanceRoutes(v1)
 	}
 }
 

@@ -8,6 +8,7 @@ import {
   ShoppingCart,
   Package,
   BarChart3,
+  ReceiptText,
   Search,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
@@ -32,6 +33,7 @@ type MenuKey =
   | "pos"
   | "products"
   | "reports"
+  | "finance"
 
 type MenuItem = {
   key: MenuKey
@@ -44,6 +46,7 @@ const PRIMARY_MENU_ITEMS: MenuItem[] = [
   { key: "pos", url: "/pos", icon: ShoppingCart },
   { key: "products", url: "/products", icon: Package },
   { key: "reports", url: "/reports", icon: BarChart3 },
+  { key: "finance", url: "/finance", icon: ReceiptText },
 ]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
