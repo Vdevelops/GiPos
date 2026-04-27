@@ -12,6 +12,7 @@ interface POSProductGridProps {
   readonly isLoading?: boolean;
   readonly onProductClick: (product: Product) => void;
   readonly onReorderProducts?: (sourceProductId: string, targetProductId: string) => void;
+  readonly isReorderMode?: boolean;
   readonly isCheckoutLocked?: boolean;
 }
 
@@ -20,6 +21,7 @@ export function POSProductGrid({
   isLoading = false,
   onProductClick,
   onReorderProducts,
+  isReorderMode = false,
   isCheckoutLocked = false,
 }: POSProductGridProps) {
   const [draggingProductId, setDraggingProductId] = useState<string | null>(null);
@@ -68,8 +70,11 @@ export function POSProductGrid({
         return (
           <div
             key={productId || 'unknown'}
-            draggable={Boolean(productId)}
-            className={`min-w-0 cursor-pointer overflow-hidden rounded-xl border bg-card text-card-foreground transition-all hover:shadow-md ${
+            data-pos-product-id={productId}
+            draggable={isReorderMode && Boolean(productId)}
+            className={`min-w-0 overflow-hidden rounded-xl border bg-card text-card-foreground transition-all hover:shadow-md ${
+              isReorderMode ? 'cursor-move touch-none' : 'cursor-pointer'
+            } ${
               isDisabled ? 'opacity-50' : ''
             } ${
               isDragging ? 'scale-[0.98] opacity-60' : ''
@@ -77,7 +82,7 @@ export function POSProductGrid({
               isDragOver ? 'ring-2 ring-primary ring-offset-2' : ''
             }`}
             onDragStart={(event) => {
-              if (!productId) {
+              if (!isReorderMode || !productId) {
                 return;
               }
               event.dataTransfer.setData('text/plain', productId);
@@ -85,7 +90,7 @@ export function POSProductGrid({
               setDraggingProductId(productId);
             }}
             onDragOver={(event) => {
-              if (!productId || !draggingProductId || draggingProductId === productId) {
+              if (!isReorderMode || !productId || !draggingProductId || draggingProductId === productId) {
                 return;
               }
               event.preventDefault();
@@ -96,6 +101,10 @@ export function POSProductGrid({
               setDragOverProductId((prev) => (prev === productId ? null : prev));
             }}
             onDrop={(event) => {
+              if (!isReorderMode) {
+                return;
+              }
+
               event.preventDefault();
               if (!productId) {
                 return;
@@ -113,8 +122,54 @@ export function POSProductGrid({
               setDraggingProductId(null);
               setDragOverProductId(null);
             }}
+            onTouchStart={(event) => {
+              if (!isReorderMode || !productId) {
+                return;
+              }
+
+              setDraggingProductId(productId);
+              setDragOverProductId(productId);
+              event.preventDefault();
+            }}
+            onTouchMove={(event) => {
+              if (!isReorderMode || !draggingProductId) {
+                return;
+              }
+
+              const touch = event.touches[0];
+              if (!touch) {
+                return;
+              }
+
+              const hoveredElement = document.elementFromPoint(touch.clientX, touch.clientY);
+              const hoveredCard = hoveredElement?.closest('[data-pos-product-id]') as HTMLElement | null;
+              const hoveredProductId = hoveredCard?.dataset.posProductId;
+
+              if (hoveredProductId && hoveredProductId !== draggingProductId) {
+                setDragOverProductId(hoveredProductId);
+              }
+
+              event.preventDefault();
+            }}
+            onTouchEnd={() => {
+              if (
+                isReorderMode &&
+                draggingProductId &&
+                dragOverProductId &&
+                draggingProductId !== dragOverProductId
+              ) {
+                onReorderProducts?.(draggingProductId, dragOverProductId);
+              }
+
+              setDraggingProductId(null);
+              setDragOverProductId(null);
+            }}
+            onTouchCancel={() => {
+              setDraggingProductId(null);
+              setDragOverProductId(null);
+            }}
             onClick={() => {
-              if (!isDisabled) {
+              if (!isDisabled && !isReorderMode) {
                 onProductClick(product);
               }
             }}

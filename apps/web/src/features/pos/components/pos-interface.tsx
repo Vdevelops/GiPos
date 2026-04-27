@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { ArrowLeft, Search, ShoppingCart, Trash2, Wallet } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,8 @@ export function POSInterface() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<'all' | string>('all');
   const [productOrder, setProductOrder] = useState<string[]>([]);
+  const [isReorderMode, setIsReorderMode] = useState(false);
+  const hasForcedSidebarClosed = useRef(false);
   const { setOpen } = useSidebar();
   const {
     searchQuery,
@@ -55,6 +57,11 @@ export function POSInterface() {
   );
 
   useEffect(() => {
+    if (hasForcedSidebarClosed.current) {
+      return;
+    }
+
+    hasForcedSidebarClosed.current = true;
     setOpen(false);
   }, [setOpen]);
 
@@ -301,6 +308,21 @@ export function POSInterface() {
               />
             </div>
 
+            <div className="mt-3 flex items-center justify-end">
+              <Button
+                type="button"
+                size="sm"
+                variant={isReorderMode ? 'default' : 'outline'}
+                onClick={() => setIsReorderMode((prev) => !prev)}
+              >
+                {isReorderMode ? t('doneReorder') : t('editOrder')}
+              </Button>
+            </div>
+
+            {isReorderMode && (
+              <p className="mt-2 text-xs text-muted-foreground">{t('reorderHint')}</p>
+            )}
+
             <div className="mt-3 overflow-x-auto pb-1">
               <div className="flex w-max items-center gap-2">
                 <Button
@@ -335,6 +357,7 @@ export function POSInterface() {
               isLoading={isLoadingProducts}
               onProductClick={addToCart}
               onReorderProducts={handleReorderProducts}
+              isReorderMode={isReorderMode}
               isCheckoutLocked={hasPendingSale}
             />
           </div>
