@@ -76,7 +76,10 @@ const PRODUCT_SALES_PAGE_SIZE = 20;
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
 function formatDateOnly(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function getDateRangePreset(
@@ -85,25 +88,24 @@ function getDateRangePreset(
   customEndDate: string
 ): { start: string; end: string } {
   const now = new Date();
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const today = formatDateOnly(end);
+  const today = formatDateOnly(now);
 
   if (preset === "today") {
     return { start: today, end: today };
   }
 
   if (preset === "monthly") {
-    const year = end.getUTCFullYear();
-    const month = end.getUTCMonth();
-    const monthStart = new Date(Date.UTC(year, month, 1));
-    const monthEnd = new Date(Date.UTC(year, month + 1, 0));
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const monthStart = new Date(year, month, 1);
+    const monthEnd = new Date(year, month + 1, 0);
     return { start: formatDateOnly(monthStart), end: formatDateOnly(monthEnd) };
   }
 
   if (preset === "yearly") {
-    const year = end.getUTCFullYear();
-    const yearStart = new Date(Date.UTC(year, 0, 1));
-    const yearEnd = new Date(Date.UTC(year, 11, 31));
+    const year = now.getFullYear();
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd = new Date(year, 11, 31);
     return { start: formatDateOnly(yearStart), end: formatDateOnly(yearEnd) };
   }
 
@@ -153,12 +155,13 @@ function formatXAxisLabel(period: string, range: ReportRange, preset: DatePreset
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString("id-ID", {
+    timeZone: "Asia/Jakarta",
     year: "numeric",
     month: "short",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-  });
+  }) + " WIB";
 }
 
 function statusBadgeVariant(status: string): "secondary" | "destructive" | "outline" {
@@ -231,14 +234,19 @@ function buildLinePath(points: XYPoint[]): string {
     .join(" ");
 }
 
-function formatAxisNumber(value: number): string {
-  if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(1)}M`;
+function formatAxisNumber(value: number, isCurrency?: boolean): string {
+  const val = isCurrency ? value / 100 : value;
+
+  if (val >= 1_000_000_000) {
+    return `${(val / 1_000_000_000).toFixed(1)}M`;
   }
-  if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(1)}K`;
+  if (val >= 1_000_000) {
+    return `${(val / 1_000_000).toFixed(1)}Jt`;
   }
-  return value.toString();
+  if (val >= 1_000) {
+    return `${(val / 1_000).toFixed(1)}Rb`;
+  }
+  return val.toString();
 }
 
 function getPresetRangeForSelection(preset: DatePreset): { start: string; end: string } {
@@ -247,11 +255,9 @@ function getPresetRangeForSelection(preset: DatePreset): { start: string; end: s
 
 export function ReportsAnalytics() {
   const now = new Date();
-  const todayDate = formatDateOnly(
-    new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-  );
+  const todayDate = formatDateOnly(now);
   const monthStartDate = formatDateOnly(
-    new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+    new Date(now.getFullYear(), now.getMonth(), 1)
   );
 
   const [datePreset, setDatePreset] = useState<DatePreset>("monthly");
@@ -655,7 +661,7 @@ export function ReportsAnalytics() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(summary?.total_revenue ?? 0)}</div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Pembaruan terakhir: {summary?.last_updated_at ?? "-"}
+              Pembaruan terakhir: {summary?.last_updated_at ? formatDateTime(summary.last_updated_at) : "-"}
             </p>
           </CardContent>
         </Card>
@@ -794,7 +800,7 @@ export function ReportsAnalytics() {
                             fontSize="10"
                             fill="hsl(var(--muted-foreground))"
                           >
-                            {formatAxisNumber(tick.revenueValue)}
+                            {formatAxisNumber(tick.revenueValue, true)}
                           </text>
                           <text
                             x={salesLineChart.chartEndX + 8}
