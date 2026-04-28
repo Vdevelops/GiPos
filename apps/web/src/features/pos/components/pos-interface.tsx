@@ -487,7 +487,7 @@ export function POSInterface() {
       </Dialog>
 
       {itemCount > 0 && !isMobileCartOpen && (
-        <div className="fixed right-4 bottom-20 z-40 flex items-center gap-2 sm:bottom-24 lg:bottom-4">
+        <div className="fixed left-4 bottom-28 z-40 flex items-center gap-2 sm:bottom-32 lg:bottom-8">
           <Button
             type="button"
             variant="outline"
@@ -506,7 +506,7 @@ export function POSInterface() {
             disabled={isProcessing}
           >
             <Wallet className="mr-2 h-4 w-4 lg:h-5 lg:w-5" />
-            Lanjutkan Pembayaran
+            {t('pay')}
           </Button>
         </div>
       )}
