@@ -107,10 +107,10 @@ func main() {
 	router := gin.New()
 
 	// Apply global middleware
+	router.Use(middleware.CORSMiddleware())
 	router.Use(middleware.RecoveryMiddleware())
 	router.Use(middleware.RequestIDMiddleware())
 	router.Use(middleware.LocaleMiddleware())
-	router.Use(middleware.CORSMiddleware())
 	router.Use(middleware.MetaMiddleware())
 
 	// Setup routes
