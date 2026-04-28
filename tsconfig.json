@@ -12,9 +12,12 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
-    "incremental": true
+    "incremental": true,
+    "paths": {
+      "@/*": ["./apps/web/src/*"]
+    }
   },
-  "include": [],
-  "exclude": ["node_modules"]
+  "include": ["apps/*/src", "apps/*/next-env.d.ts"],
+  "exclude": ["node_modules", "**/dist", "**/build", "**/.next"]
 }
 
