@@ -214,6 +214,11 @@ var ErrorCodeMap = map[string]ErrorInfo{
 		Message:    "Resource tidak ditemukan",
 		MessageEn:  "Resource not found",
 	},
+	"METHOD_NOT_ALLOWED": {
+		HTTPStatus: http.StatusMethodNotAllowed,
+		Message:    "Method tidak diizinkan untuk endpoint ini",
+		MessageEn:  "Method is not allowed for this endpoint",
+	},
 	"PRODUCT_NOT_FOUND": {
 		HTTPStatus: http.StatusNotFound,
 		Message:    "Produk tidak ditemukan",

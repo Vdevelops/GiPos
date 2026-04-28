@@ -17,6 +17,7 @@ import (
 	approuter "gipos/api/internal/core/infrastructure/router"
 	"gipos/api/internal/core/infrastructure/seeder"
 	"gipos/api/internal/core/middleware"
+	coreerrors "gipos/api/internal/core/utils/errors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -112,6 +113,20 @@ func main() {
 	router.Use(middleware.RequestIDMiddleware())
 	router.Use(middleware.LocaleMiddleware())
 	router.Use(middleware.MetaMiddleware())
+
+	// Return structured JSON for unmatched routes/methods.
+	router.NoRoute(func(c *gin.Context) {
+		coreerrors.Error(c, "NOT_FOUND", map[string]interface{}{
+			"path":   c.Request.URL.Path,
+			"method": c.Request.Method,
+		}, nil)
+	})
+	router.NoMethod(func(c *gin.Context) {
+		coreerrors.Error(c, "METHOD_NOT_ALLOWED", map[string]interface{}{
+			"path":   c.Request.URL.Path,
+			"method": c.Request.Method,
+		}, nil)
+	})
 
 	// Setup routes
 	log.Println("🛣️  Setting up routes...")
