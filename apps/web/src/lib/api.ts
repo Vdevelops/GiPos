@@ -106,6 +106,26 @@ function buildUnauthorizedResponse<T>(message: string): ApiResponse<T> {
   };
 }
 
+async function parseApiResponse<T>(res: Response): Promise<ApiResponse<T>> {
+  const contentType = res.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    return (await res.json()) as ApiResponse<T>;
+  }
+
+  const raw = await res.text();
+  return {
+    success: false,
+    error: {
+      code: `HTTP_${res.status}`,
+      message: raw || `HTTP ${res.status}`,
+      message_en: raw || `HTTP ${res.status}`,
+    },
+    timestamp: new Date().toISOString(),
+    request_id: `req_${Date.now()}`,
+  };
+}
+
 /**
  * =========================
  * REFRESH TOKEN
@@ -211,7 +231,7 @@ export async function apiRequest<T>(
       };
     }
 
-    const data = await res.json();
+    const data = await parseApiResponse<T>(res);
 
     if (!res.ok) {
       return data;
