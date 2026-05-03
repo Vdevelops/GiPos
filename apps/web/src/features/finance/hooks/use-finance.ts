@@ -147,6 +147,26 @@ export function useUpdateFixedExpenseComponent() {
   })
 }
 
+export function useDeleteFixedExpenseComponent() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (componentId: string) => FinanceService.deleteFixedExpenseComponent(componentId),
+    onSuccess: (response) => {
+      if (!response.success) {
+        toast.error(response.error?.message || "Gagal menghapus komponen biaya tetap")
+        return
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["finance"] })
+      toast.success("Komponen biaya tetap berhasil dihapus")
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Gagal menghapus komponen biaya tetap")
+    },
+  })
+}
+
 export function useUpdateGeneralExpenseItem() {
   const queryClient = useQueryClient()
 

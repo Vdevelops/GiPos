@@ -3,6 +3,7 @@ import type {
   CreateFixedExpenseComponentRequest,
   CreateFinanceExpenseRequest,
   CreateFixedExpenseComponentResponse,
+  DeleteFixedExpenseComponentResponse,
   CreateFinanceExpenseResponse,
   FixedExpenseComponentsResponse,
   FinanceSummary,
@@ -95,6 +96,15 @@ export class FinanceService {
       body: JSON.stringify(payload),
       requireAuth: true,
     }) as Promise<UpdateFixedExpenseComponentResponse>
+  }
+
+  static async deleteFixedExpenseComponent(
+    componentId: string
+  ): Promise<DeleteFixedExpenseComponentResponse> {
+    return apiRequest<{ deleted: boolean }>(`finance/fixed-expense-components/${componentId}`, {
+      method: "DELETE",
+      requireAuth: true,
+    }) as Promise<DeleteFixedExpenseComponentResponse>
   }
 
   static async updateGeneralExpenseItem(

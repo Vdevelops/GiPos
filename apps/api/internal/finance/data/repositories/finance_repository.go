@@ -188,6 +188,10 @@ func (r *FinanceRepository) SaveFixedExpenseComponent(component *financeModels.F
 	return r.db.Save(component).Error
 }
 
+func (r *FinanceRepository) DeleteFixedExpenseComponent(tenantID, componentID uint) error {
+	return r.db.Where("tenant_id = ? AND id = ?", tenantID, componentID).Delete(&financeModels.FixedExpenseComponent{}).Error
+}
+
 func (r *FinanceRepository) GetExpenseItemByID(tx *gorm.DB, tenantID, itemID uint) (*financeModels.ExpenseItem, error) {
 	var item financeModels.ExpenseItem
 	err := r.dbFor(tx).

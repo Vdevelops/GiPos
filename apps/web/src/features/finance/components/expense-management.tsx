@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { Pencil, Plus, ReceiptText, Trash2, TriangleAlert, Printer } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { DeleteDialog } from "@/components/delete-dialog"
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,7 @@ import { toast } from "@/lib/toast"
 import {
   useCreateFixedExpenseComponent,
   useCreateGeneralExpense,
+  useDeleteFixedExpenseComponent,
   useFinanceSummary,
   useSetOpeningBalance,
   useUpdateFixedExpenseComponent,
@@ -320,6 +322,8 @@ export function ExpenseManagement() {
   const [fixedComponentName, setFixedComponentName] = React.useState("")
   const [fixedComponentAmount, setFixedComponentAmount] = React.useState("")
   const [editingFixedComponent, setEditingFixedComponent] = React.useState<FinanceFixedExpenseComponent | null>(null)
+  const [deleteFixedComponentDialogOpen, setDeleteFixedComponentDialogOpen] = React.useState(false)
+  const [deletingFixedComponent, setDeletingFixedComponent] = React.useState<FinanceFixedExpenseComponent | null>(null)
 
   const [generalItemDialogOpen, setGeneralItemDialogOpen] = React.useState(false)
   const [generalItemName, setGeneralItemName] = React.useState("")
@@ -358,6 +362,7 @@ export function ExpenseManagement() {
   const setOpeningBalanceMutation = useSetOpeningBalance()
   const createGeneralExpenseMutation = useCreateGeneralExpense()
   const createFixedComponentMutation = useCreateFixedExpenseComponent()
+  const deleteFixedComponentMutation = useDeleteFixedExpenseComponent()
   const updateFixedComponentMutation = useUpdateFixedExpenseComponent()
   const updateGeneralExpenseItemMutation = useUpdateGeneralExpenseItem()
   const deleteGeneralExpenseItemMutation = useDeleteGeneralExpenseItem()
@@ -517,6 +522,19 @@ export function ExpenseManagement() {
     setFixedComponentName(component.name)
     setFixedComponentAmount(formatAmountInput(String(component.amount)))
     setFixedComponentDialogOpen(true)
+  }
+
+  const openDeleteFixedComponentDialog = (component: FinanceFixedExpenseComponent) => {
+    setDeletingFixedComponent(component)
+    setDeleteFixedComponentDialogOpen(true)
+  }
+
+  const handleDeleteFixedComponent = async () => {
+    if (!deletingFixedComponent) return
+
+    await deleteFixedComponentMutation.mutateAsync(deletingFixedComponent.id)
+    setDeleteFixedComponentDialogOpen(false)
+    setDeletingFixedComponent(null)
   }
 
   const handleSaveFixedComponent = async () => {
@@ -841,6 +859,20 @@ export function ExpenseManagement() {
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 print:hidden"
+                          onClick={() => {
+                            const component = fixedComponents.find((fixedComponent) => fixedComponent.id === item.id)
+                            if (!component) return
+                            openDeleteFixedComponentDialog(component)
+                          }}
+                          disabled={deleteFixedComponentMutation.isPending}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -907,6 +939,24 @@ export function ExpenseManagement() {
         onAmountChange={setGeneralItemAmount}
         onSubmit={handleSaveGeneralItem}
         isSubmitting={updateGeneralExpenseItemMutation.isPending}
+      />
+
+      <DeleteDialog
+        open={deleteFixedComponentDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteFixedComponentDialogOpen(open)
+          if (!open) {
+            setDeletingFixedComponent(null)
+          }
+        }}
+        onConfirm={handleDeleteFixedComponent}
+        title="Hapus komponen pengeluaran tetap?"
+        description={
+          deletingFixedComponent
+            ? `Komponen "${deletingFixedComponent.name}" akan dihapus dan total pengeluaran tetap akan menyesuaikan.`
+            : "Komponen ini akan dihapus dan total pengeluaran tetap akan menyesuaikan."
+        }
+        isLoading={deleteFixedComponentMutation.isPending}
       />
     </div>
   )
