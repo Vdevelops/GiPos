@@ -54,6 +54,20 @@ func uintPtrToStringPtr(u *uint) *string {
 	return &s
 }
 
+func parseTimestamp(raw string) (time.Time, error) {
+	parsed, err := time.Parse(time.RFC3339Nano, raw)
+	if err == nil {
+		return parsed.UTC(), nil
+	}
+
+	parsed, err = time.Parse(time.RFC3339, raw)
+	if err == nil {
+		return parsed.UTC(), nil
+	}
+
+	return time.Time{}, err
+}
+
 // SaleUsecase handles sale business logic
 type SaleUsecase struct {
 	saleRepo        *repositories.SaleRepository
@@ -339,8 +353,17 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 		discountPercent = float64(totalDiscountAmount) / float64(subtotal) * 100.0
 	}
 
+	occurredAt := time.Now().UTC()
+	if req.OccurredAt != nil && strings.TrimSpace(*req.OccurredAt) != "" {
+		parsedAt, err := parseTimestamp(strings.TrimSpace(*req.OccurredAt))
+		if err != nil {
+			return nil, errors.New("INVALID_DATE")
+		}
+		occurredAt = parsedAt
+	}
+
 	// Generate invoice number
-	dateStr := time.Now().Format("20060102")
+	dateStr := occurredAt.Format("20060102")
 	// Get sequence number for today
 	var sequence int
 	var lastSale models.Sale
@@ -381,6 +404,10 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 		// Create sale
 		sale = &models.Sale{
 			TenantModel: sharedModels.TenantModel{
+				BaseModel: sharedModels.BaseModel{
+					CreatedAt: occurredAt,
+					UpdatedAt: occurredAt,
+				},
 				TenantID: tenantIDUint,
 			},
 			OutletID:       outletIDUint,
@@ -562,8 +589,10 @@ func (uc *SaleUsecase) UpdateSale(tenantID, id string, req *dto.UpdateSaleReques
 	}
 
 	oldItemsDiscount := int64(0)
+	existingProductIDs := make(map[uint]struct{}, len(sale.Items))
 	for _, item := range sale.Items {
 		oldItemsDiscount += item.DiscountAmount
+		existingProductIDs[item.ProductID] = struct{}{}
 	}
 	globalDiscount := sale.DiscountAmount - oldItemsDiscount
 	if globalDiscount < 0 {
@@ -634,7 +663,9 @@ func (uc *SaleUsecase) UpdateSale(tenantID, id string, req *dto.UpdateSaleReques
 			}
 
 			if product.Status != "active" {
-				return nil, errors.New("PRODUCT_INACTIVE")
+				if _, existsInOriginalSale := existingProductIDs[product.ID]; !existsInOriginalSale {
+					return nil, errors.New("PRODUCT_INACTIVE")
+				}
 			}
 
 			unitPrice := product.Price
@@ -714,47 +745,9 @@ func (uc *SaleUsecase) UpdateSale(tenantID, id string, req *dto.UpdateSaleReques
 				newQtyByProduct[newItem.ProductID] += newItem.Quantity
 			}
 
-			referenceID := sale.ID
-			createdBy := sale.CashierID
-			for productID, oldQty := range oldQtyByProduct {
-				newQty := newQtyByProduct[productID]
-				delta := oldQty - newQty
-				if delta == 0 {
-					continue
-				}
-
-				if err := uc.stockService.ApplyStockChange(tx, stockService.ApplyStockChangeRequest{
-					TenantID:      tenantIDUint,
-					ProductID:     productID,
-					Delta:         delta,
-					ReferenceType: "sale_edit",
-					ReferenceID:   &referenceID,
-					Notes:         fmt.Sprintf("Sale %s item updated", sale.InvoiceNumber),
-					MovementDate:  time.Now(),
-					CreatedBy:     &createdBy,
-				}); err != nil {
-					return err
-				}
-				delete(newQtyByProduct, productID)
-			}
-
-			for productID, newQty := range newQtyByProduct {
-				if newQty == 0 {
-					continue
-				}
-				if err := uc.stockService.ApplyStockChange(tx, stockService.ApplyStockChangeRequest{
-					TenantID:      tenantIDUint,
-					ProductID:     productID,
-					Delta:         -newQty,
-					ReferenceType: "sale_edit",
-					ReferenceID:   &referenceID,
-					Notes:         fmt.Sprintf("Sale %s item added", sale.InvoiceNumber),
-					MovementDate:  time.Now(),
-					CreatedBy:     &createdBy,
-				}); err != nil {
-					return err
-				}
-			}
+			// Stock adjustments during sale edit are disabled per request.
+			// Previously we applied stockService.ApplyStockChange here to reverse and reapply stock deltas.
+			// Skipping stock mutations ensures edits won't fail due to inventory constraints.
 
 			if err := tx.Where("tenant_id = ? AND sale_id = ?", tenantIDUint, sale.ID).Delete(&models.SaleItem{}).Error; err != nil {
 				return err
@@ -786,7 +779,12 @@ func (uc *SaleUsecase) UpdateSale(tenantID, id string, req *dto.UpdateSaleReques
 		return nil
 	})
 	if err != nil {
-		return nil, errors.New("INTERNAL_SERVER_ERROR")
+		switch err.Error() {
+		case "INSUFFICIENT_STOCK", "STOCK_NEGATIVE", "INVALID_PRICE", "PRODUCT_INACTIVE", "INVALID_PRODUCT_ID", "INVALID_QUANTITY":
+			return nil, errors.New(err.Error())
+		default:
+			return nil, errors.New("INTERNAL_SERVER_ERROR")
+		}
 	}
 
 	updatedSale, err := uc.saleRepo.GetByID(tenantIDUint, idUint)
@@ -817,11 +815,9 @@ func (uc *SaleUsecase) VoidSale(tenantID, id string, _ string) error {
 	}
 
 	// Validate sale can be voided
-	if sale.Status != models.SaleStatusPending {
-		return errors.New("VOID_NOT_ALLOWED")
-	}
-
-	if sale.PaymentStatus == models.PaymentStatusCompleted {
+	// Allow voiding even if the sale was already paid/completed.
+	// Only disallow if the sale is already cancelled.
+	if sale.Status == models.SaleStatusCancelled {
 		return errors.New("VOID_NOT_ALLOWED")
 	}
 

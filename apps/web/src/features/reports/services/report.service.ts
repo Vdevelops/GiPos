@@ -21,6 +21,8 @@ import type {
   ReportTransactionResponse,
   UpdateReportTransactionRequest,
   UpdateReportTransactionResponse,
+  CreateReportTransactionRequest,
+  CreateReportTransactionResponse,
 } from '../types/report';
 
 function toQueryString(
@@ -137,5 +139,60 @@ export class ReportService {
       body: JSON.stringify(payload),
       requireAuth: true,
     }) as Promise<UpdateReportTransactionResponse>;
+  }
+
+  static async createTransaction(
+    payload: CreateReportTransactionRequest
+  ): Promise<CreateReportTransactionResponse> {
+    const saleResponse = await apiRequest<any>('sales', {
+      method: 'POST',
+      body: JSON.stringify({
+        outlet_id: payload.outlet_id,
+        payment_method: payload.payment_method,
+        notes: payload.notes,
+        items: payload.items,
+        occurred_at: payload.occurred_at,
+      }),
+      requireAuth: true,
+    }) as any;
+
+    if (!saleResponse?.success || !saleResponse.data?.id) {
+      return saleResponse as CreateReportTransactionResponse;
+    }
+
+    const sale = saleResponse.data;
+    const paymentBody = {
+      sale_id: sale.id,
+      method: payload.payment_method,
+      amount: sale.total,
+      amount_paid: payload.payment_method === 'cash' ? sale.total : undefined,
+      paid_at: payload.occurred_at,
+    };
+
+    const paymentResponse = await apiRequest<any>('payments', {
+      method: 'POST',
+      body: JSON.stringify(paymentBody),
+      requireAuth: true,
+    }) as any;
+
+    if (!paymentResponse?.success) {
+      await apiRequest<null>(`sales/${sale.id}/void`, {
+        method: 'POST',
+        requireAuth: true,
+      });
+      return paymentResponse as CreateReportTransactionResponse;
+    }
+
+    return apiRequest<ReportTransaction>(`sales/${sale.id}`, {
+      method: 'GET',
+      requireAuth: true,
+    }) as Promise<CreateReportTransactionResponse>;
+  }
+
+  static async voidTransaction(id: string): Promise<import('@/features/auth/types').ApiResponse<null>> {
+    return apiRequest<null>(`sales/${id}/void`, {
+      method: 'POST',
+      requireAuth: true,
+    });
   }
 }

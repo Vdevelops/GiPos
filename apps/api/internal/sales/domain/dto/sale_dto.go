@@ -10,6 +10,7 @@ type CreateSaleRequest struct {
 	DiscountPercent *float64              `json:"discount_percent,omitempty"`
 	PaymentMethod   string                `json:"payment_method" binding:"required,oneof=cash qris"`
 	Notes           string                `json:"notes,omitempty"`
+	OccurredAt      *string               `json:"occurred_at,omitempty"`
 }
 
 // CreateSaleItemRequest represents a sale item in the request

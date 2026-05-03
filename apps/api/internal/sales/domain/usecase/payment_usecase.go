@@ -3,6 +3,7 @@ package usecase
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	redisInfra "gipos/api/internal/core/infrastructure/redis"
@@ -69,6 +70,15 @@ func (uc *PaymentUsecase) ProcessPayment(tenantID string, req *dto.ProcessPaymen
 		return nil, errors.New("PAYMENT_METHOD_MISMATCH")
 	}
 
+	paidAt := time.Now().UTC()
+	if req.PaidAt != nil && strings.TrimSpace(*req.PaidAt) != "" {
+		parsedAt, err := parseTimestamp(strings.TrimSpace(*req.PaidAt))
+		if err != nil {
+			return nil, errors.New("INVALID_DATE")
+		}
+		paidAt = parsedAt
+	}
+
 	// Create payment
 	payment := &models.Payment{
 		TenantModel: sharedModels.TenantModel{
@@ -79,6 +89,7 @@ func (uc *PaymentUsecase) ProcessPayment(tenantID string, req *dto.ProcessPaymen
 		Amount:          req.Amount,
 		Status:          models.PaymentStatusCompleted,
 		GatewayResponse: "{}",
+		PaidAt:          &paidAt,
 	}
 	var changeAmount *int64
 
@@ -98,8 +109,6 @@ func (uc *PaymentUsecase) ProcessPayment(tenantID string, req *dto.ProcessPaymen
 	}
 
 	// Both cash and qris are completed immediately in POS flow.
-	now := time.Now()
-	payment.PaidAt = &now
 
 	err = uc.db.Transaction(func(tx *gorm.DB) error {
 		var existingPayment models.Payment
@@ -123,10 +132,9 @@ func (uc *PaymentUsecase) ProcessPayment(tenantID string, req *dto.ProcessPaymen
 		paymentID := uintToString(payment.ID)
 		sale.PaymentID = &paymentID
 		if payment.Status == models.PaymentStatusCompleted {
-			now := time.Now()
-			sale.PaidAt = &now
+			sale.PaidAt = &paidAt
 			sale.Status = models.SaleStatusCompleted
-			sale.CompletedAt = &now
+			sale.CompletedAt = &paidAt
 		}
 
 		if err := tx.Model(&models.Sale{}).

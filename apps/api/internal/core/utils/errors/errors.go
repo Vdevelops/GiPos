@@ -368,6 +368,21 @@ var ErrorCodeMap = map[string]ErrorInfo{
 		Message:    "Void tidak diizinkan (sudah dibayar)",
 		MessageEn:  "Void not allowed (already paid)",
 	},
+	"SALE_UPDATE_NOT_ALLOWED": {
+		HTTPStatus: http.StatusConflict,
+		Message:    "Transaksi tidak dapat diedit",
+		MessageEn:  "Sale cannot be updated",
+	},
+	"PRODUCT_INACTIVE": {
+		HTTPStatus: http.StatusUnprocessableEntity,
+		Message:    "Produk tidak aktif",
+		MessageEn:  "Product is inactive",
+	},
+	"INVALID_PRICE": {
+		HTTPStatus: http.StatusBadRequest,
+		Message:    "Harga tidak valid",
+		MessageEn:  "Invalid price",
+	},
 
 	// Business Logic Errors - Shift Management
 	"SHIFT_NOT_OPEN": {
