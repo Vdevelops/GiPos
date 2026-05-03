@@ -214,6 +214,11 @@ var ErrorCodeMap = map[string]ErrorInfo{
 		Message:    "Resource tidak ditemukan",
 		MessageEn:  "Resource not found",
 	},
+	"METHOD_NOT_ALLOWED": {
+		HTTPStatus: http.StatusMethodNotAllowed,
+		Message:    "Method tidak diizinkan untuk endpoint ini",
+		MessageEn:  "Method is not allowed for this endpoint",
+	},
 	"PRODUCT_NOT_FOUND": {
 		HTTPStatus: http.StatusNotFound,
 		Message:    "Produk tidak ditemukan",
@@ -362,6 +367,21 @@ var ErrorCodeMap = map[string]ErrorInfo{
 		HTTPStatus: http.StatusUnprocessableEntity,
 		Message:    "Void tidak diizinkan (sudah dibayar)",
 		MessageEn:  "Void not allowed (already paid)",
+	},
+	"SALE_UPDATE_NOT_ALLOWED": {
+		HTTPStatus: http.StatusConflict,
+		Message:    "Transaksi tidak dapat diedit",
+		MessageEn:  "Sale cannot be updated",
+	},
+	"PRODUCT_INACTIVE": {
+		HTTPStatus: http.StatusUnprocessableEntity,
+		Message:    "Produk tidak aktif",
+		MessageEn:  "Product is inactive",
+	},
+	"INVALID_PRICE": {
+		HTTPStatus: http.StatusBadRequest,
+		Message:    "Harga tidak valid",
+		MessageEn:  "Invalid price",
 	},
 
 	// Business Logic Errors - Shift Management

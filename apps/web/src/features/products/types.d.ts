@@ -95,6 +95,7 @@ export interface ProductListQuery {
   per_page?: number;
   search?: string;
   category_id?: string;
+  include_tenant?: boolean;
   status?: 'active' | 'inactive' | 'archived';
   min_price?: number;
   max_price?: number;

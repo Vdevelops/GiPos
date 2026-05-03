@@ -23,6 +23,7 @@ export class ProductService {
     if (query?.per_page) params.append('per_page', query.per_page.toString());
     if (query?.search) params.append('search', query.search);
     if (query?.category_id) params.append('category_id', query.category_id);
+    if (query?.include_tenant !== undefined) params.append('include_tenant', query.include_tenant ? '1' : '0');
     if (query?.status) params.append('status', query.status);
     if (query?.min_price) params.append('min_price', query.min_price.toString());
     if (query?.max_price) params.append('max_price', query.max_price.toString());

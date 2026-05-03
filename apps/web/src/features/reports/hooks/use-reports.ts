@@ -7,6 +7,7 @@ import type {
   ReportProductSalesQuery,
   ReportRange,
   ReportTransactionsQuery,
+  CreateReportTransactionRequest,
   UpdateReportTransactionRequest,
 } from '../types/report';
 import { toast } from '@/lib/toast';
@@ -107,6 +108,52 @@ export function useUpdateReportTransaction() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Gagal memperbarui transaksi');
+    },
+  });
+}
+
+export function useCreateReportTransaction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: CreateReportTransactionRequest) => ReportService.createTransaction(payload),
+    onSuccess: (response) => {
+      if (!response.success) {
+        toast.error(response.error?.message || 'Gagal menambahkan transaksi');
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['sale', response.data?.id] });
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      toast.success('Transaksi berhasil ditambahkan');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Gagal menambahkan transaksi');
+    },
+  });
+}
+
+export function useVoidReportTransaction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => ReportService.voidTransaction(id),
+    onSuccess: (response, id) => {
+      if (!response.success) {
+        toast.error(response.error?.message || 'Gagal menghapus transaksi');
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['sale', id] });
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      toast.success('Transaksi berhasil dihapus');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Gagal menghapus transaksi');
     },
   });
 }

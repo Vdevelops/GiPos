@@ -23,6 +23,17 @@ func NewFinanceRepository(db *gorm.DB) *FinanceRepository {
 	return &FinanceRepository{db: db}
 }
 
+func (r *FinanceRepository) dbFor(tx *gorm.DB) *gorm.DB {
+	if tx != nil {
+		return tx
+	}
+	return r.db
+}
+
+func (r *FinanceRepository) Transaction(fn func(tx *gorm.DB) error) error {
+	return r.db.Transaction(fn)
+}
+
 func (r *FinanceRepository) GetOpeningBalance(tenantID uint) (*financeModels.OpeningBalance, error) {
 	var opening financeModels.OpeningBalance
 	err := r.db.Where("tenant_id = ? AND deleted_at IS NULL", tenantID).
@@ -56,6 +67,39 @@ func (r *FinanceRepository) CreateExpenseEntryWithItems(entry *financeModels.Exp
 
 		return nil
 	})
+}
+
+func (r *FinanceRepository) GetExpenseEntryByID(tx *gorm.DB, tenantID, entryID uint) (*financeModels.ExpenseEntry, error) {
+	var entry financeModels.ExpenseEntry
+	err := r.dbFor(tx).
+		Where("tenant_id = ? AND id = ? AND deleted_at IS NULL", tenantID, entryID).
+		First(&entry).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &entry, nil
+}
+
+func (r *FinanceRepository) SaveExpenseEntry(tx *gorm.DB, entry *financeModels.ExpenseEntry) error {
+	return r.dbFor(tx).Save(entry).Error
+}
+
+func (r *FinanceRepository) DeleteExpenseEntry(tx *gorm.DB, tenantID, entryID uint) error {
+	return r.dbFor(tx).Where("tenant_id = ? AND id = ?", tenantID, entryID).Delete(&financeModels.ExpenseEntry{}).Error
+}
+
+func (r *FinanceRepository) ListExpenseItemsByEntryID(tx *gorm.DB, tenantID, entryID uint) ([]financeModels.ExpenseItem, error) {
+	var items []financeModels.ExpenseItem
+	err := r.dbFor(tx).
+		Where("tenant_id = ? AND entry_id = ? AND deleted_at IS NULL", tenantID, entryID).
+		Order("created_at ASC").
+		Find(&items).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return items, nil
 }
 
 func (r *FinanceRepository) ListExpenseEntriesWithItems(tenantID uint, startDate, endDate time.Time) ([]financeModels.ExpenseEntry, error) {
@@ -144,9 +188,9 @@ func (r *FinanceRepository) SaveFixedExpenseComponent(component *financeModels.F
 	return r.db.Save(component).Error
 }
 
-func (r *FinanceRepository) GetExpenseItemByID(tenantID, itemID uint) (*financeModels.ExpenseItem, error) {
+func (r *FinanceRepository) GetExpenseItemByID(tx *gorm.DB, tenantID, itemID uint) (*financeModels.ExpenseItem, error) {
 	var item financeModels.ExpenseItem
-	err := r.db.
+	err := r.dbFor(tx).
 		Where("tenant_id = ? AND id = ? AND deleted_at IS NULL", tenantID, itemID).
 		First(&item).Error
 	if err != nil {
@@ -155,10 +199,10 @@ func (r *FinanceRepository) GetExpenseItemByID(tenantID, itemID uint) (*financeM
 	return &item, nil
 }
 
-func (r *FinanceRepository) SaveExpenseItem(item *financeModels.ExpenseItem) error {
-	return r.db.Save(item).Error
+func (r *FinanceRepository) SaveExpenseItem(tx *gorm.DB, item *financeModels.ExpenseItem) error {
+	return r.dbFor(tx).Save(item).Error
 }
 
-func (r *FinanceRepository) DeleteExpenseItem(tenantID, itemID uint) error {
-	return r.db.Where("tenant_id = ? AND id = ?", tenantID, itemID).Delete(&financeModels.ExpenseItem{}).Error
+func (r *FinanceRepository) DeleteExpenseItem(tx *gorm.DB, tenantID, itemID uint) error {
+	return r.dbFor(tx).Where("tenant_id = ? AND id = ?", tenantID, itemID).Delete(&financeModels.ExpenseItem{}).Error
 }

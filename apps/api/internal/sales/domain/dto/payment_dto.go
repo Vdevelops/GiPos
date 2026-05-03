@@ -7,6 +7,7 @@ type ProcessPaymentRequest struct {
 	Amount       int64  `json:"amount" binding:"required,min=1"`
 	AmountPaid   *int64 `json:"amount_paid,omitempty"`   // For cash payment
 	CashReceived *int64 `json:"cash_received,omitempty"` // Backward-compatible alias for amount_paid
+	PaidAt       *string `json:"paid_at,omitempty"`
 }
 
 // UpdatePaymentRequest represents the request to update payment status

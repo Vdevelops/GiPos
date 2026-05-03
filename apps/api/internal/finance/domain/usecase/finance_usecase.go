@@ -439,19 +439,25 @@ func (uc *FinanceUsecase) createExpense(tenantID, userID, kind string, req *dto.
 
 func toExpenseResponse(entry financeModels.ExpenseEntry) dto.ExpenseRecordResponse {
 	lineItems := make([]dto.ExpenseLineItemResponse, 0, len(entry.ExpenseItems))
+	totalAmount := int64(0)
 	for _, item := range entry.ExpenseItems {
 		lineItems = append(lineItems, dto.ExpenseLineItemResponse{
 			ID: uintToString(item.ID),
 			Name: item.Name,
 			Amount: item.Amount,
 		})
+		totalAmount += item.Amount
+	}
+
+	if totalAmount == 0 {
+		totalAmount = entry.TotalAmount
 	}
 
 	return dto.ExpenseRecordResponse{
 		ID: uintToString(entry.ID),
 		Kind: entry.Kind,
 		EntryDate: formatDate(entry.EntryDate),
-		Total: entry.TotalAmount,
+		Total: totalAmount,
 		Notes: entry.Notes,
 		CreatedAt: entry.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt: entry.UpdatedAt.UTC().Format(time.RFC3339),
@@ -488,34 +494,68 @@ func (uc *FinanceUsecase) UpdateExpenseItem(tenantID, itemID string, req *dto.Up
 		return nil, errors.New("INVALID_ID")
 	}
 
-	item, err := uc.financeRepo.GetExpenseItemByID(uint(tenantIDUint), uint(itemIDUint))
+	var response *dto.ExpenseLineItemResponse
+	err = uc.financeRepo.Transaction(func(tx *gorm.DB) error {
+		item, err := uc.financeRepo.GetExpenseItemByID(tx, uint(tenantIDUint), uint(itemIDUint))
+		if err != nil {
+			return gorm.ErrRecordNotFound
+		}
+
+		if req.Name != nil {
+			name := strings.TrimSpace(*req.Name)
+			if name == "" {
+				return errors.New("INVALID_NAME")
+			}
+			item.Name = name
+		}
+		if req.Amount != nil {
+			if *req.Amount <= 0 {
+				return errors.New("INVALID_AMOUNT")
+			}
+			item.Amount = *req.Amount
+		}
+
+		if err := uc.financeRepo.SaveExpenseItem(tx, item); err != nil {
+			return err
+		}
+
+		items, err := uc.financeRepo.ListExpenseItemsByEntryID(tx, uint(tenantIDUint), item.EntryID)
+		if err != nil {
+			return err
+		}
+
+		entry, err := uc.financeRepo.GetExpenseEntryByID(tx, uint(tenantIDUint), item.EntryID)
+		if err != nil {
+			return err
+		}
+
+		totalAmount := int64(0)
+		for _, expenseItem := range items {
+			totalAmount += expenseItem.Amount
+		}
+		entry.TotalAmount = totalAmount
+		if err := uc.financeRepo.SaveExpenseEntry(tx, entry); err != nil {
+			return err
+		}
+
+		response = &dto.ExpenseLineItemResponse{
+			ID:     strconv.FormatUint(uint64(item.ID), 10),
+			Name:   item.Name,
+			Amount: item.Amount,
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, errors.New("NOT_FOUND")
-	}
-
-	if req.Name != nil {
-		name := strings.TrimSpace(*req.Name)
-		if name == "" {
-			return nil, errors.New("INVALID_NAME")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("NOT_FOUND")
 		}
-		item.Name = name
-	}
-	if req.Amount != nil {
-		if *req.Amount <= 0 {
-			return nil, errors.New("INVALID_AMOUNT")
+		if err.Error() == "INVALID_NAME" || err.Error() == "INVALID_AMOUNT" {
+			return nil, err
 		}
-		item.Amount = *req.Amount
-	}
-
-	if err := uc.financeRepo.SaveExpenseItem(item); err != nil {
 		return nil, errors.New("INTERNAL_SERVER_ERROR")
 	}
 
-	return &dto.ExpenseLineItemResponse{
-		ID:     strconv.FormatUint(uint64(item.ID), 10),
-		Name:   item.Name,
-		Amount: item.Amount,
-	}, nil
+	return response, nil
 }
 
 func (uc *FinanceUsecase) DeleteExpenseItem(tenantID, itemID string) error {
@@ -529,17 +569,44 @@ func (uc *FinanceUsecase) DeleteExpenseItem(tenantID, itemID string) error {
 		return errors.New("INVALID_ID")
 	}
 
-	// Verify it exists first
-	_, err = uc.financeRepo.GetExpenseItemByID(uint(tenantIDUint), uint(itemIDUint))
-	if err != nil {
-		return errors.New("NOT_FOUND")
-	}
+	return uc.financeRepo.Transaction(func(tx *gorm.DB) error {
+		item, err := uc.financeRepo.GetExpenseItemByID(tx, uint(tenantIDUint), uint(itemIDUint))
+		if err != nil {
+			return gorm.ErrRecordNotFound
+		}
 
-	if err := uc.financeRepo.DeleteExpenseItem(uint(tenantIDUint), uint(itemIDUint)); err != nil {
-		return errors.New("INTERNAL_SERVER_ERROR")
-	}
+		if err := uc.financeRepo.DeleteExpenseItem(tx, uint(tenantIDUint), uint(itemIDUint)); err != nil {
+			return err
+		}
 
-	return nil
+		items, err := uc.financeRepo.ListExpenseItemsByEntryID(tx, uint(tenantIDUint), item.EntryID)
+		if err != nil {
+			return err
+		}
+
+		if len(items) == 0 {
+			if err := uc.financeRepo.DeleteExpenseEntry(tx, uint(tenantIDUint), item.EntryID); err != nil {
+				return err
+			}
+			return nil
+		}
+
+		entry, err := uc.financeRepo.GetExpenseEntryByID(tx, uint(tenantIDUint), item.EntryID)
+		if err != nil {
+			return err
+		}
+
+		totalAmount := int64(0)
+		for _, expenseItem := range items {
+			totalAmount += expenseItem.Amount
+		}
+		entry.TotalAmount = totalAmount
+		if err := uc.financeRepo.SaveExpenseEntry(tx, entry); err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func toFixedComponentResponses(components []financeModels.FixedExpenseComponent) []dto.FixedExpenseComponentResponse {
