@@ -395,6 +395,11 @@ export function ReportsAnalytics() {
     setReceiptPreviewData(null);
   };
 
+  const handleSaveReportWithoutReceipt = async () => {
+    setReceiptPreviewData(null);
+    toast.success("Transaksi sudah tersimpan tanpa mencetak nota");
+  };
+
   const handleDatePresetChange = (value: string) => {
     const nextPreset = value as DatePreset;
     setDatePreset(nextPreset);
@@ -1495,6 +1500,7 @@ export function ReportsAnalytics() {
         }}
         data={receiptPreviewData}
         onConfirmPrint={handleConfirmReportPrint}
+        onSaveWithoutReceipt={handleSaveReportWithoutReceipt}
         onCancel={() => setReceiptPreviewData(null)}
       />
 

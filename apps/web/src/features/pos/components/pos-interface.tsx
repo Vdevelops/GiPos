@@ -383,6 +383,34 @@ export function POSInterface() {
     }
   };
 
+  const handleSaveWithoutReceipt = async () => {
+    if (!receiptPreviewData) return;
+
+    setIsPrintingReceipt(true);
+    try {
+      const paymentData: Record<string, unknown> = {};
+      if (receiptPreviewData.paymentMethod === 'cash') {
+        paymentData.amount_paid = receiptPreviewData.amountPaid;
+      }
+
+      await processCheckout(
+        outletId,
+        null,
+        receiptPreviewData.paymentMethod,
+        paymentData
+      );
+      toast.success('Transaksi berhasil disimpan tanpa nota');
+      setIsReceiptPreviewOpen(false);
+      setReceiptPreviewData(null);
+      setIsMobileCartOpen(false);
+    } catch (error) {
+      console.error('Payment checkout failed:', error);
+      toast.error(error instanceof Error ? error.message : 'Transaksi gagal diproses');
+    } finally {
+      setIsPrintingReceipt(false);
+    }
+  };
+
   const itemCount = useMemo(
     () => cart.reduce((sum, item) => sum + item.quantity, 0),
     [cart]
@@ -693,6 +721,7 @@ export function POSInterface() {
         onOpenChange={setIsReceiptPreviewOpen}
         data={receiptPreviewData}
         onConfirmPrint={handleConfirmAndPrint}
+        onSaveWithoutReceipt={handleSaveWithoutReceipt}
         onCancel={handleCancelReceiptPreview}
         isProcessing={isPrintingReceipt || isProcessing}
       />
