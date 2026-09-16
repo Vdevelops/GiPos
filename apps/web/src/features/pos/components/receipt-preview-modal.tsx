@@ -26,7 +26,9 @@ import { toast } from '@/lib/toast';
 import type { CartItem } from './pos-cart';
 
 export interface ReceiptPreviewData {
-  items: CartItem[];
+  items: Array<Pick<CartItem, 'quantity'> & {
+    product: Pick<CartItem['product'], 'id' | 'name' | 'price'>;
+  }>;
   subtotal: number;
   discountAmount: number;
   discountPercent: number;
@@ -38,6 +40,7 @@ export interface ReceiptPreviewData {
   orderNumber: string;
   date: string;
   time: string;
+  notes?: string | null;
 }
 
 interface ReceiptPreviewModalProps {
@@ -195,6 +198,13 @@ export function ReceiptPreviewModal({
               <span className="font-semibold">{data.orderNumber}</span>
             </div>
           </div>
+
+          {data.notes ? (
+            <div className="mt-3 border-t border-dashed border-stone-300 pt-2 text-[11px]">
+              <span className="font-semibold">Keterangan: </span>
+              {data.notes}
+            </div>
+          ) : null}
 
           <div className="my-3 border-b border-dashed border-stone-400 dark:border-stone-600" />
 

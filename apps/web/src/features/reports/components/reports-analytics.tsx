@@ -42,6 +42,10 @@ import {
 import { DeleteDialog } from "@/components/delete-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency, rupiahToSen, senToRupiah } from "@/lib/currency";
+import { ReceiptPreviewModal } from "@/features/pos/components/receipt-preview-modal";
+import type { ReceiptPreviewData } from "@/features/pos/components/receipt-preview-modal";
+import { isBluetoothSupported, printThermalReceiptBluetooth } from "@/lib/bluetooth-printer";
+import { toast } from "@/lib/toast";
 import {
   useReportPaymentMethods,
   useReportProductSales,
@@ -291,7 +295,7 @@ export function ReportsAnalytics() {
   const [productSalesSortOrder, setProductSalesSortOrder] = useState<"asc" | "desc">("desc");
   const [detailOpen, setDetailOpen] = useState<boolean>(false);
   const [selectedTransactionID, setSelectedTransactionID] = useState<string | null>(null);
-  const [printTransaction, setPrintTransaction] = useState<ReportTransaction | null>(null);
+  const [receiptPreviewData, setReceiptPreviewData] = useState<ReceiptPreviewData | null>(null);
   const [isEditingTransaction, setIsEditingTransaction] = useState<boolean>(false);
   const [openDetailInEditMode, setOpenDetailInEditMode] = useState<boolean>(false);
   const [createOpen, setCreateOpen] = useState<boolean>(false);
@@ -310,21 +314,85 @@ export function ReportsAnalytics() {
   const [selectedProductIDToAdd, setSelectedProductIDToAdd] = useState<string>("");
   const [addProductQty, setAddProductQty] = useState<number>(1);
 
-  useEffect(() => {
-    if (!printTransaction) return;
-
-    const printTimer = window.setTimeout(() => window.print(), 100);
-    const clearPrintTransaction = () => setPrintTransaction(null);
-    window.addEventListener("afterprint", clearPrintTransaction);
-
-    return () => {
-      window.clearTimeout(printTimer);
-      window.removeEventListener("afterprint", clearPrintTransaction);
-    };
-  }, [printTransaction]);
-
   const handlePrintTransaction = (transaction: ReportTransaction) => {
-    setPrintTransaction(transaction);
+    const paymentMethod = transaction.payment_method.toLowerCase() === "qris" ? "qris" : "cash";
+    const createdAt = new Date(transaction.created_at);
+    setReceiptPreviewData({
+      items: transaction.items.map((item) => ({
+        product: {
+          id: item.product_id,
+          name: item.product_name,
+          price: item.unit_price,
+        },
+        quantity: item.quantity,
+      })),
+      subtotal: transaction.subtotal,
+      discountAmount: transaction.discount_amount,
+      discountPercent: 0,
+      total: transaction.total,
+      paymentMethod,
+      amountPaid: transaction.payment?.amount ?? transaction.total,
+      change: transaction.payment?.change ?? 0,
+      cashierName: transaction.cashier?.name ?? "Kasir",
+      orderNumber: transaction.invoice_number,
+      date: createdAt.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        timeZone: "Asia/Jakarta",
+      }),
+      time: createdAt.toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+        timeZone: "Asia/Jakarta",
+      }),
+      notes: transaction.notes,
+    });
+  };
+
+  const handleConfirmReportPrint = async (mode: "bluetooth" | "browser" = "bluetooth") => {
+    if (!receiptPreviewData) return;
+
+    if (mode === "bluetooth") {
+      const printResult = await printThermalReceiptBluetooth({
+        title: "Warung Bebek & Ayam Goreng Wanamukti",
+        storeAddress: "Jl. Wanamukti No. 88, Semarang",
+        orderNumber: receiptPreviewData.orderNumber,
+        date: receiptPreviewData.date,
+        time: receiptPreviewData.time,
+        cashierName: receiptPreviewData.cashierName,
+        items: receiptPreviewData.items.map((item) => ({
+          name: item.product.name,
+          quantity: item.quantity,
+          unitPrice: item.product.price,
+          totalPrice: item.product.price * item.quantity,
+        })),
+        subtotal: receiptPreviewData.subtotal,
+        discountAmount: receiptPreviewData.discountAmount,
+        total: receiptPreviewData.total,
+        paymentMethod: receiptPreviewData.paymentMethod,
+        amountPaid: receiptPreviewData.amountPaid,
+        change: receiptPreviewData.change,
+        footerNote: "Terima Kasih atas Kunjungan Anda!",
+      });
+
+      if (printResult.success) {
+        toast.success("Nota berhasil dicetak via Bluetooth");
+        setReceiptPreviewData(null);
+        return;
+      }
+
+      toast.warning(
+        isBluetoothSupported()
+          ? `Bluetooth gagal: ${printResult.error ?? "Membuka cetak browser."}`
+          : "Bluetooth tidak tersedia. Membuka cetak browser."
+      );
+    }
+
+    window.print();
+    setReceiptPreviewData(null);
   };
 
   const handleDatePresetChange = (value: string) => {
@@ -1420,40 +1488,15 @@ export function ReportsAnalytics() {
         </TabsContent>
       </Tabs>
 
-      {printTransaction ? (
-        <div id="printable-thermal-receipt" className="fixed -left-[10000px] top-0 w-[58mm] bg-white p-3 font-mono text-xs text-black">
-          <div className="space-y-1 text-center">
-            <p className="font-bold">GiPos</p>
-            <p>Nota Transaksi</p>
-          </div>
-          <div className="my-3 border-b border-dashed border-black" />
-          <div className="space-y-1">
-            <div className="flex justify-between gap-2"><span>Invoice</span><span>{printTransaction.invoice_number}</span></div>
-            <div className="flex justify-between gap-2"><span>Tanggal</span><span>{formatDateTime(printTransaction.created_at)}</span></div>
-            <div className="flex justify-between gap-2"><span>Kasir</span><span>{printTransaction.cashier?.name ?? "-"}</span></div>
-          </div>
-          <div className="my-3 border-b border-dashed border-black" />
-          <div className="space-y-2">
-            {printTransaction.items.map((item) => (
-              <div key={item.id}>
-                <p>{item.product_name}</p>
-                <div className="flex justify-between gap-2">
-                  <span>{item.quantity} x {formatCurrency(item.unit_price)}</span>
-                  <span>{formatCurrency(item.total)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="my-3 border-b border-dashed border-black" />
-          <div className="space-y-1">
-            <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(printTransaction.subtotal)}</span></div>
-            <div className="flex justify-between"><span>Diskon</span><span>-{formatCurrency(printTransaction.discount_amount)}</span></div>
-            <div className="flex justify-between font-bold"><span>Total</span><span>{formatCurrency(printTransaction.total)}</span></div>
-            <div className="flex justify-between"><span>Metode</span><span>{formatPaymentMethodLabel(printTransaction.payment_method)}</span></div>
-          </div>
-          <p className="mt-4 text-center">Terima Kasih</p>
-        </div>
-      ) : null}
+      <ReceiptPreviewModal
+        open={receiptPreviewData !== null}
+        onOpenChange={(open) => {
+          if (!open) setReceiptPreviewData(null);
+        }}
+        data={receiptPreviewData}
+        onConfirmPrint={handleConfirmReportPrint}
+        onCancel={() => setReceiptPreviewData(null)}
+      />
 
       <Dialog
         open={createOpen}
