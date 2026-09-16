@@ -70,14 +70,14 @@ func parseTimestamp(raw string) (time.Time, error) {
 
 // SaleUsecase handles sale business logic
 type SaleUsecase struct {
-	saleRepo        *repositories.SaleRepository
-	saleItemRepo    *repositories.SaleItemRepository
-	productRepo     *productRepo.ProductRepository
+	saleRepo         *repositories.SaleRepository
+	saleItemRepo     *repositories.SaleItemRepository
+	productRepo      *productRepo.ProductRepository
 	productStockRepo *productStockRepo.ProductStockRepository
-	outletRepo      *outletRepo.OutletRepository
-	shiftRepo       *repositories.ShiftRepository
-	stockService    *stockService.StockService
-	db              *gorm.DB
+	outletRepo       *outletRepo.OutletRepository
+	shiftRepo        *repositories.ShiftRepository
+	stockService     *stockService.StockService
+	db               *gorm.DB
 }
 
 // NewSaleUsecase creates a new sale usecase
@@ -92,14 +92,14 @@ func NewSaleUsecase(
 	db *gorm.DB,
 ) *SaleUsecase {
 	return &SaleUsecase{
-		saleRepo:        saleRepo,
-		saleItemRepo:    saleItemRepo,
-		productRepo:     productRepo,
+		saleRepo:         saleRepo,
+		saleItemRepo:     saleItemRepo,
+		productRepo:      productRepo,
 		productStockRepo: productStockRepo,
-		outletRepo:      outletRepo,
-		shiftRepo:       shiftRepo,
-		stockService:    stockService,
-		db:              db,
+		outletRepo:       outletRepo,
+		shiftRepo:        shiftRepo,
+		stockService:     stockService,
+		db:               db,
 	}
 }
 
@@ -310,16 +310,16 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 			TenantModel: sharedModels.TenantModel{
 				TenantID: tenantIDUint,
 			},
-			ProductID:      productIDUint,
-			ProductName:    product.Name,
-			ProductSKU:     product.SKU,
-			Quantity:       itemReq.Quantity,
-			UnitPrice:      unitPrice,
-			DiscountAmount: itemDiscountAmount,
+			ProductID:       productIDUint,
+			ProductName:     product.Name,
+			ProductSKU:      product.SKU,
+			Quantity:        itemReq.Quantity,
+			UnitPrice:       unitPrice,
+			DiscountAmount:  itemDiscountAmount,
 			DiscountPercent: 0,
-			TaxAmount:      itemTaxAmount,
-			Subtotal:       itemSubtotal,
-			Total:          itemTotal,
+			TaxAmount:       itemTaxAmount,
+			Subtotal:        itemSubtotal,
+			Total:           itemTotal,
 		}
 		if itemReq.DiscountPercent != nil {
 			saleItem.DiscountPercent = *itemReq.DiscountPercent
@@ -410,20 +410,20 @@ func (uc *SaleUsecase) CreateSale(tenantID string, req *dto.CreateSaleRequest, c
 				},
 				TenantID: tenantIDUint,
 			},
-			OutletID:       outletIDUint,
-			ShiftID:        shiftIDUint,
-			InvoiceNumber:  invoiceNumber,
-			CustomerID:     customerIDUint,
-			CashierID:      cashierIDUint,
-			Subtotal:       subtotal,
-			DiscountAmount: totalDiscountAmount,
+			OutletID:        outletIDUint,
+			ShiftID:         shiftIDUint,
+			InvoiceNumber:   invoiceNumber,
+			CustomerID:      customerIDUint,
+			CashierID:       cashierIDUint,
+			Subtotal:        subtotal,
+			DiscountAmount:  totalDiscountAmount,
 			DiscountPercent: discountPercent,
-			TaxAmount:      totalTaxAmount,
-			Total:          total,
-			PaymentMethod:  req.PaymentMethod,
-			PaymentStatus:  models.PaymentStatusPending,
-			Status:         models.SaleStatusPending,
-			Notes:          req.Notes,
+			TaxAmount:       totalTaxAmount,
+			Total:           total,
+			PaymentMethod:   req.PaymentMethod,
+			PaymentStatus:   models.PaymentStatusPending,
+			Status:          models.SaleStatusPending,
+			Notes:           req.Notes,
 		}
 
 		if err := tx.Create(sale).Error; err != nil {
@@ -692,13 +692,13 @@ func (uc *SaleUsecase) UpdateSale(tenantID, id string, req *dto.UpdateSaleReques
 			itemAfterDiscount := itemSubtotal - itemDiscountAmount
 
 			saleItem := models.SaleItem{
-				TenantModel: sharedModels.TenantModel{TenantID: tenantIDUint},
-				SaleID:      sale.ID,
-				ProductID:   product.ID,
-				ProductName: product.Name,
-				ProductSKU:  product.SKU,
-				Quantity:    itemReq.Quantity,
-				UnitPrice:   unitPrice,
+				TenantModel:     sharedModels.TenantModel{TenantID: tenantIDUint},
+				SaleID:          sale.ID,
+				ProductID:       product.ID,
+				ProductName:     product.Name,
+				ProductSKU:      product.SKU,
+				Quantity:        itemReq.Quantity,
+				UnitPrice:       unitPrice,
 				DiscountAmount:  itemDiscountAmount,
 				DiscountPercent: 0,
 				TaxAmount:       0,
@@ -795,7 +795,7 @@ func (uc *SaleUsecase) UpdateSale(tenantID, id string, req *dto.UpdateSaleReques
 	return toSaleResponse(updatedSale), nil
 }
 
-// VoidSale voids a sale (before payment)
+// VoidSale voids a sale, including sales that have already been paid.
 func (uc *SaleUsecase) VoidSale(tenantID, id string, _ string) error {
 	tenantIDUint, err := stringToUint(tenantID)
 	if err != nil {
@@ -814,9 +814,7 @@ func (uc *SaleUsecase) VoidSale(tenantID, id string, _ string) error {
 		return errors.New("INTERNAL_SERVER_ERROR")
 	}
 
-	// Validate sale can be voided
-	// Allow voiding even if the sale was already paid/completed.
-	// Only disallow if the sale is already cancelled.
+	// A paid sale can still be voided from reports. Repeated voids are rejected.
 	if sale.Status == models.SaleStatusCancelled {
 		return errors.New("VOID_NOT_ALLOWED")
 	}
@@ -824,10 +822,24 @@ func (uc *SaleUsecase) VoidSale(tenantID, id string, _ string) error {
 	// Void sale
 	now := time.Now()
 	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		// Update sale status
-		sale.Status = models.SaleStatusCancelled
-		sale.CancelledAt = &now
-		if err := tx.Save(sale).Error; err != nil {
+		// Update only the sale columns so preloaded associations are not persisted.
+		result := tx.Model(&models.Sale{}).
+			Where("tenant_id = ? AND id = ? AND deleted_at IS NULL", tenantIDUint, idUint).
+			Updates(map[string]interface{}{
+				"status":         models.SaleStatusCancelled,
+				"payment_status": models.PaymentStatusCancelled,
+				"cancelled_at":   &now,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+
+		if err := tx.Model(&models.Payment{}).
+			Where("tenant_id = ? AND sale_id = ?", tenantIDUint, idUint).
+			Update("status", models.PaymentStatusCancelled).Error; err != nil {
 			return err
 		}
 

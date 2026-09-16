@@ -136,7 +136,7 @@ export function ReceiptPreviewModal({
               {hasBluetoothSupport
                 ? connectedDevice
                   ? 'Koneksi perangkat terverifikasi.'
-                  : 'Klik Cetak Bluetooth untuk menghubungkan.'
+                  : 'Klik Simpan & Cetak Nota untuk menghubungkan.'
                 : 'Menggunakan Driver Printer OS / CUPS Linux.'}
             </span>
 
@@ -291,7 +291,7 @@ export function ReceiptPreviewModal({
 
           <Button
             type="button"
-            onClick={() => void onConfirmPrint('browser')}
+            onClick={() => void onConfirmPrint('bluetooth')}
             disabled={isProcessing}
             className="h-11 flex-1 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
           >
@@ -307,18 +307,6 @@ export function ReceiptPreviewModal({
               </>
             )}
           </Button>
-
-          {hasBluetoothSupport && (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => void onConfirmPrint('bluetooth')}
-              disabled={isProcessing}
-              className="h-11 text-xs font-semibold"
-            >
-              Bluetooth Direct
-            </Button>
-          )}
         </div>
       </DialogContent>
     </Dialog>
