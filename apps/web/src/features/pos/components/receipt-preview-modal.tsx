@@ -48,6 +48,7 @@ interface ReceiptPreviewModalProps {
   readonly onOpenChange: (open: boolean) => void;
   readonly data: ReceiptPreviewData | null;
   readonly onConfirmPrint: (mode?: 'bluetooth' | 'browser') => Promise<void>;
+  readonly onSaveWithoutReceipt: () => Promise<void>;
   readonly onCancel: () => void;
   readonly isProcessing?: boolean;
 }
@@ -57,6 +58,7 @@ export function ReceiptPreviewModal({
   onOpenChange,
   data,
   onConfirmPrint,
+  onSaveWithoutReceipt,
   onCancel,
   isProcessing = false,
 }: ReceiptPreviewModalProps) {
@@ -297,6 +299,16 @@ export function ReceiptPreviewModal({
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Batal
+          </Button>
+
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => void onSaveWithoutReceipt()}
+            disabled={isProcessing}
+            className="h-11 px-4 text-sm font-semibold"
+          >
+            Simpan Tanpa Nota
           </Button>
 
           <Button
