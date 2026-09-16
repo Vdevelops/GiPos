@@ -6,6 +6,7 @@ import {
   Eye,
   Package,
   Pencil,
+  Printer,
   Plus,
   Save,
   ShoppingCart,
@@ -61,6 +62,7 @@ import type {
   ReportFilterQuery,
   ReportProductSalesQuery,
   ReportRange,
+  ReportTransaction,
   ReportTransactionItem,
   ReportTransactionsQuery,
 } from "@/features/reports/types/report";
@@ -289,6 +291,7 @@ export function ReportsAnalytics() {
   const [productSalesSortOrder, setProductSalesSortOrder] = useState<"asc" | "desc">("desc");
   const [detailOpen, setDetailOpen] = useState<boolean>(false);
   const [selectedTransactionID, setSelectedTransactionID] = useState<string | null>(null);
+  const [printTransaction, setPrintTransaction] = useState<ReportTransaction | null>(null);
   const [isEditingTransaction, setIsEditingTransaction] = useState<boolean>(false);
   const [openDetailInEditMode, setOpenDetailInEditMode] = useState<boolean>(false);
   const [createOpen, setCreateOpen] = useState<boolean>(false);
@@ -306,6 +309,23 @@ export function ReportsAnalytics() {
   const [editProductSearch, setEditProductSearch] = useState<string>("");
   const [selectedProductIDToAdd, setSelectedProductIDToAdd] = useState<string>("");
   const [addProductQty, setAddProductQty] = useState<number>(1);
+
+  useEffect(() => {
+    if (!printTransaction) return;
+
+    const printTimer = window.setTimeout(() => window.print(), 100);
+    const clearPrintTransaction = () => setPrintTransaction(null);
+    window.addEventListener("afterprint", clearPrintTransaction);
+
+    return () => {
+      window.clearTimeout(printTimer);
+      window.removeEventListener("afterprint", clearPrintTransaction);
+    };
+  }, [printTransaction]);
+
+  const handlePrintTransaction = (transaction: ReportTransaction) => {
+    setPrintTransaction(transaction);
+  };
 
   const handleDatePresetChange = (value: string) => {
     const nextPreset = value as DatePreset;
@@ -1150,6 +1170,14 @@ export function ReportsAnalytics() {
                                   Edit
                                 </Button>
                                 <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handlePrintTransaction(transaction)}
+                                >
+                                  <Printer className="mr-1 h-4 w-4" />
+                                  Print
+                                </Button>
+                                <Button
                                   variant="destructive"
                                   size="sm"
                                   onClick={() => handleVoidTransactionByID(transaction.id)}
@@ -1392,6 +1420,41 @@ export function ReportsAnalytics() {
         </TabsContent>
       </Tabs>
 
+      {printTransaction ? (
+        <div id="printable-thermal-receipt" className="fixed -left-[10000px] top-0 w-[58mm] bg-white p-3 font-mono text-xs text-black">
+          <div className="space-y-1 text-center">
+            <p className="font-bold">GiPos</p>
+            <p>Nota Transaksi</p>
+          </div>
+          <div className="my-3 border-b border-dashed border-black" />
+          <div className="space-y-1">
+            <div className="flex justify-between gap-2"><span>Invoice</span><span>{printTransaction.invoice_number}</span></div>
+            <div className="flex justify-between gap-2"><span>Tanggal</span><span>{formatDateTime(printTransaction.created_at)}</span></div>
+            <div className="flex justify-between gap-2"><span>Kasir</span><span>{printTransaction.cashier?.name ?? "-"}</span></div>
+          </div>
+          <div className="my-3 border-b border-dashed border-black" />
+          <div className="space-y-2">
+            {printTransaction.items.map((item) => (
+              <div key={item.id}>
+                <p>{item.product_name}</p>
+                <div className="flex justify-between gap-2">
+                  <span>{item.quantity} x {formatCurrency(item.unit_price)}</span>
+                  <span>{formatCurrency(item.total)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="my-3 border-b border-dashed border-black" />
+          <div className="space-y-1">
+            <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(printTransaction.subtotal)}</span></div>
+            <div className="flex justify-between"><span>Diskon</span><span>-{formatCurrency(printTransaction.discount_amount)}</span></div>
+            <div className="flex justify-between font-bold"><span>Total</span><span>{formatCurrency(printTransaction.total)}</span></div>
+            <div className="flex justify-between"><span>Metode</span><span>{formatPaymentMethodLabel(printTransaction.payment_method)}</span></div>
+          </div>
+          <p className="mt-4 text-center">Terima Kasih</p>
+        </div>
+      ) : null}
+
       <Dialog
         open={createOpen}
         onOpenChange={(open) => {
@@ -1578,6 +1641,10 @@ export function ReportsAnalytics() {
                     </Badge>
                     {!isEditingTransaction ? (
                       <div className="flex flex-wrap items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handlePrintTransaction(selectedTransaction)}>
+                          <Printer className="mr-1 h-4 w-4" />
+                          Print
+                        </Button>
                         <Button variant="destructive" size="sm" onClick={handleVoidTransaction} disabled={voidTransactionMutation.isPending}>
                           <Trash2 className="mr-1 h-4 w-4" />
                           {voidTransactionMutation.isPending ? "Menghapus..." : "Hapus"}
