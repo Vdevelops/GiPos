@@ -104,3 +104,4 @@ export type CreateFinanceExpenseResponse = ApiResponse<FinanceExpenseRecord>
 export type FixedExpenseComponentsResponse = ApiResponse<FinanceFixedExpenseComponent[]>
 export type CreateFixedExpenseComponentResponse = ApiResponse<FinanceFixedExpenseComponent>
 export type UpdateFixedExpenseComponentResponse = ApiResponse<FinanceFixedExpenseComponent>
+export type DeleteFixedExpenseComponentResponse = ApiResponse<{ deleted: boolean }>

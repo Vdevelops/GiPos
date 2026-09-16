@@ -184,6 +184,36 @@ func (uc *FinanceUsecase) UpdateFixedExpenseComponent(tenantID, componentID stri
 	return &resp, nil
 }
 
+func (uc *FinanceUsecase) DeleteFixedExpenseComponent(tenantID, componentID string) error {
+	tenantIDUint, err := stringToUint(tenantID)
+	if err != nil {
+		return errors.New("INVALID_TENANT_ID")
+	}
+
+	componentIDUint, err := stringToUint(componentID)
+	if err != nil {
+		return errors.New("INVALID_ID")
+	}
+
+	component, err := uc.financeRepo.GetFixedExpenseComponentByID(tenantIDUint, componentIDUint)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("NOT_FOUND")
+		}
+		return errors.New("INTERNAL_SERVER_ERROR")
+	}
+
+	if component == nil {
+		return errors.New("NOT_FOUND")
+	}
+
+	if err := uc.financeRepo.DeleteFixedExpenseComponent(tenantIDUint, componentIDUint); err != nil {
+		return errors.New("INTERNAL_SERVER_ERROR")
+	}
+
+	return nil
+}
+
 func (uc *FinanceUsecase) GetSummary(tenantID string, query dto.FinanceSummaryQuery) (*dto.FinanceSummaryResponse, error) {
 	tenantIDUint, err := stringToUint(tenantID)
 	if err != nil {
@@ -236,6 +266,11 @@ func (uc *FinanceUsecase) GetSummary(tenantID string, query dto.FinanceSummaryQu
 	generalByDate := map[string][]dto.ExpenseRecordResponse{}
 	for _, entry := range entries {
 		if entry.Kind != financeModels.ExpenseKindGeneral {
+			continue
+		}
+
+		// Skip entries with no items (orphaned/empty entries should not contribute to total)
+		if len(entry.ExpenseItems) == 0 {
 			continue
 		}
 

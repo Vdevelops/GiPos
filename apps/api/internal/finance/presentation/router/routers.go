@@ -25,6 +25,7 @@ func SetupFinanceRoutes(r *gin.RouterGroup) {
 		finance.GET("/fixed-expense-components", h.ListFixedExpenseComponents)
 		finance.POST("/fixed-expense-components", h.CreateFixedExpenseComponent)
 		finance.PATCH("/fixed-expense-components/:id", h.UpdateFixedExpenseComponent)
+		finance.DELETE("/fixed-expense-components/:id", h.DeleteFixedExpenseComponent)
 		finance.PATCH("/expenses/items/:id", h.UpdateExpenseItem)
 		finance.DELETE("/expenses/items/:id", h.DeleteExpenseItem)
 		finance.GET("/summary", h.GetSummary)

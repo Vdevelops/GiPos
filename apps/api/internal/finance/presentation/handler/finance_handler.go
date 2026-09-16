@@ -181,6 +181,32 @@ func (h *FinanceHandler) UpdateFixedExpenseComponent(c *gin.Context) {
 	response.Success(c, result, meta)
 }
 
+func (h *FinanceHandler) DeleteFixedExpenseComponent(c *gin.Context) {
+	tenantID, exists := c.Get("tenant_id")
+	if !exists {
+		errors.Unauthorized(c, "Tenant ID is required")
+		return
+	}
+
+	componentID := c.Param("id")
+	if componentID == "" {
+		errors.ValidationError(c, []response.FieldError{{
+			Field:   "id",
+			Message: "id is required",
+		}})
+		return
+	}
+
+	if err := h.financeUsecase.DeleteFixedExpenseComponent(tenantID.(string), componentID); err != nil {
+		errors.Error(c, err.Error(), nil, nil)
+		return
+	}
+
+	meta := response.GetMetaFromContext(c)
+	meta.TenantID = tenantID.(string)
+	response.Success(c, map[string]bool{"deleted": true}, meta)
+}
+
 func (h *FinanceHandler) createExpense(c *gin.Context, isGeneral bool) {
 	var req financeDTO.CreateExpenseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
