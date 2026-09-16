@@ -24,6 +24,10 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/components/ui/sidebar';
+import { ReceiptPreviewModal, type ReceiptPreviewData } from './receipt-preview-modal';
+import { printThermalReceiptBluetooth, isBluetoothSupported } from '@/lib/bluetooth-printer';
+import { tokenStorage } from '@/lib/token';
+import { toast } from '@/lib/toast';
 
 const POS_PRODUCT_ORDER_STORAGE_KEY = 'gipos-pos-product-order';
 
@@ -31,6 +35,9 @@ export function POSInterface() {
   const t = useTranslations('pos');
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isReceiptPreviewOpen, setIsReceiptPreviewOpen] = useState(false);
+  const [receiptPreviewData, setReceiptPreviewData] = useState<ReceiptPreviewData | null>(null);
+  const [isPrintingReceipt, setIsPrintingReceipt] = useState(false);
   const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<'all' | string>('all');
   const [productOrder, setProductOrder] = useState<string[]>([]);
@@ -246,16 +253,133 @@ export function POSInterface() {
     [cart, products]
   );
 
-  const handlePayment = async (method: 'cash' | 'qris', data: Record<string, unknown>) => {
-    try {
-      const shiftId = null; // This should come from active shift
+  const handleInitiatePayment = (method: 'cash' | 'qris', data: Record<string, unknown>) => {
+    const user = tokenStorage.getUser();
+    const cashierName = user?.name || user?.email || 'Kasir';
 
-      await processCheckout(outletId, shiftId, method, data);
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+    const timeStr = now.toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+
+    const randSuffix = Math.floor(1000 + Math.random() * 9000);
+    const dateOrderPrefix = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const previewOrderNumber = `ORD-${dateOrderPrefix}-${randSuffix}`;
+
+    const amountPaid = typeof data.amount_paid === 'number' ? data.amount_paid : totals.total;
+    const change = amountPaid - totals.total;
+
+    const previewData: ReceiptPreviewData = {
+      items: cart,
+      subtotal: totals.subtotal,
+      discountAmount: totals.discountAmount,
+      discountPercent: totals.discountPercent,
+      total: totals.total,
+      paymentMethod: method,
+      amountPaid,
+      change,
+      cashierName,
+      orderNumber: previewOrderNumber,
+      date: dateStr,
+      time: timeStr,
+    };
+
+    setReceiptPreviewData(previewData);
+    setIsPaymentModalOpen(false);
+    setIsReceiptPreviewOpen(true);
+  };
+
+  const handleCancelReceiptPreview = () => {
+    setIsReceiptPreviewOpen(false);
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleConfirmAndPrint = async (mode: 'bluetooth' | 'browser' = 'browser') => {
+    if (!receiptPreviewData) return;
+
+    setIsPrintingReceipt(true);
+    try {
+      const shiftId = null; // From active shift if any
+      const paymentData: Record<string, unknown> = {};
+
+      if (receiptPreviewData.paymentMethod === 'cash') {
+        paymentData.amount_paid = receiptPreviewData.amountPaid;
+      }
+
+      // 1. Process Checkout to database
+      const checkoutResult = await processCheckout(
+        outletId,
+        shiftId,
+        receiptPreviewData.paymentMethod,
+        paymentData
+      );
+
+      const actualInvoice =
+        checkoutResult?.sale?.invoice_number ||
+        checkoutResult?.payment?.sale_id ||
+        receiptPreviewData.orderNumber;
+
+      const shouldTryBluetooth = mode === 'bluetooth' && isBluetoothSupported();
+
+      if (shouldTryBluetooth) {
+        // Connect via Web Bluetooth to thermal printer VSC H-58BT 58mm and print
+        const printPayload = {
+          title: 'Warung Bebek & Ayam Goreng Wanamukti',
+          orderNumber: actualInvoice,
+          date: receiptPreviewData.date,
+          time: receiptPreviewData.time,
+          cashierName: receiptPreviewData.cashierName,
+          items: receiptPreviewData.items.map((item) => ({
+            name: item.product?.name ?? 'Produk',
+            quantity: item.quantity ?? 0,
+            unitPrice: item.product?.price ?? 0,
+            totalPrice: (item.product?.price ?? 0) * (item.quantity ?? 0),
+          })),
+          subtotal: receiptPreviewData.subtotal,
+          discountAmount: receiptPreviewData.discountAmount,
+          discountPercent: receiptPreviewData.discountPercent,
+          total: receiptPreviewData.total,
+          paymentMethod: receiptPreviewData.paymentMethod,
+          amountPaid: receiptPreviewData.amountPaid,
+          change: receiptPreviewData.change,
+          footerNote: 'Terima Kasih atas Kunjungan Anda!',
+        };
+
+        const printResult = await printThermalReceiptBluetooth(printPayload);
+
+        if (printResult.success) {
+          toast.success('Transaksi berhasil disimpan & Nota dicetak via Bluetooth!');
+        } else {
+          toast.warning(
+            `Transaksi berhasil disimpan. Menampilkan cetak browser: ${printResult.error || 'Gagal Bluetooth'}`
+          );
+          setTimeout(() => {
+            window.print();
+          }, 300);
+        }
+      } else {
+        toast.success('Transaksi berhasil disimpan!');
+        setTimeout(() => {
+          window.print();
+        }, 300);
+      }
+
+      setIsReceiptPreviewOpen(false);
+      setReceiptPreviewData(null);
       setIsMobileCartOpen(false);
-      setIsPaymentModalOpen(false);
     } catch (error) {
-      console.error('Payment error:', error);
-      // Error is handled by mutation hooks (toast)
+      console.error('Payment checkout failed:', error);
+      toast.error(error instanceof Error ? error.message : 'Transaksi gagal diproses');
+    } finally {
+      setIsPrintingReceipt(false);
     }
   };
 
@@ -558,11 +682,20 @@ export function POSInterface() {
             isLoading={isProcessing}
             hasPendingSale={hasPendingSale}
             pendingReference={pendingSale?.invoiceNumber ?? pendingSale?.id}
-            onPayCash={(amountPaid) => handlePayment('cash', { amount_paid: amountPaid })}
-            onPayQris={() => handlePayment('qris', {})}
+            onPayCash={(amountPaid) => handleInitiatePayment('cash', { amount_paid: amountPaid })}
+            onPayQris={() => handleInitiatePayment('qris', {})}
           />
         </DialogContent>
       </Dialog>
+
+      <ReceiptPreviewModal
+        open={isReceiptPreviewOpen}
+        onOpenChange={setIsReceiptPreviewOpen}
+        data={receiptPreviewData}
+        onConfirmPrint={handleConfirmAndPrint}
+        onCancel={handleCancelReceiptPreview}
+        isProcessing={isPrintingReceipt || isProcessing}
+      />
     </>
   );
 }
